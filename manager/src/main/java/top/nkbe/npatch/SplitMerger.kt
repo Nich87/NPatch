@@ -3,6 +3,7 @@ package top.nkbe.npatch
 import com.reandroid.apk.APKLogger
 import com.reandroid.apk.ApkBundle
 import com.reandroid.apk.ApkModule
+import com.reandroid.apk.DexFileInputSource
 import com.reandroid.app.AndroidManifest
 import com.reandroid.archive.ZipEntryMap
 import com.reandroid.arsc.chunk.xml.ResXmlElement
@@ -12,6 +13,7 @@ import com.reandroid.arsc.value.ValueType
 import top.nkbe.npatch.patch.util.Logger
 import java.io.File
 import java.io.IOException
+import java.nio.file.Files
 
 /**
  * Merges a split APK set (base + config splits) into a single monolithic APK
@@ -33,7 +35,7 @@ object SplitMerger {
         try {
             // REAndroid loads modules from a directory, naming the base module "base.apk".
             apkFiles.forEach { file ->
-                file.copyTo(modulesDir.resolve(file.name), overwrite = true)
+                linkOrCopy(file, modulesDir.resolve(file.name))
             }
 
             val bundle = ApkBundle().apply {
@@ -44,7 +46,7 @@ object SplitMerger {
             if (modules.isEmpty()) throw IOException("Nothing to merge, empty modules")
             logger.i("Merging ${modules.size} split APKs...")
 
-            val merged = bundle.mergeModules(false).apply {
+            val merged = mergeOntoBase(bundle, logger).apply {
                 setAPKLogger(LoggerAdapter(logger))
                 setLoadDefaultFramework(false)
             }
@@ -113,6 +115,50 @@ object SplitMerger {
         }
     }
 
+    /**
+     * Merges the config splits onto the base module.
+     *
+     * [ApkBundle.mergeModules] copies the base into a fresh module first, which walks its whole
+     * resource table and holds both copies on the heap. Splits only add configurations to
+     * entries the base already declares, so merging onto it skips that. The steps after the
+     * merge loop mirror [ApkBundle.mergeModules].
+     */
+    private fun mergeOntoBase(bundle: ApkBundle, logger: Logger): ApkModule {
+        val modules = bundle.apkModuleList
+        val base = bundle.baseModule ?: modules.first()
+        val manifestMerger = bundle.manifestMerger
+        manifestMerger?.reset()
+        manifestMerger?.initializeBase(base.androidManifest)
+
+        modules.filterNot { it === base }.forEach { module ->
+            base.merge(module, false)
+            manifestMerger?.merge(module.androidManifest)
+        }
+        manifestMerger?.sanitize(base)
+        deflateDexFiles(base)
+
+        if (base.hasTableBlock()) {
+            base.tableBlock.sortPackages()
+            base.tableBlock.refresh()
+        }
+        base.zipEntryMap.autoSortApkFiles()
+        logger.d("Merged onto base module: ${base.moduleName}")
+        return base
+    }
+
+    /** Links [source] into the workspace to avoid copying a several-hundred-MB split set. */
+    private fun linkOrCopy(source: File, destination: File) {
+        destination.delete()
+        try {
+            Files.createLink(destination.toPath(), source.toPath())
+            return
+        } catch (_: IOException) {
+            // Cross-device, or no hard link support.
+        } catch (_: UnsupportedOperationException) {
+        }
+        source.copyTo(destination, overwrite = true)
+    }
+
     private class LoggerAdapter(private val logger: Logger) : APKLogger {
         override fun logMessage(msg: String) = logger.i(msg)
         override fun logError(msg: String, tr: Throwable?) = logger.e(msg)
@@ -150,6 +196,20 @@ object SplitMerger {
             val specTypePair: SpecTypePair = resEntry.typeBlock.parentSpecTypePair
             specTypePair.removeNullEntries(resEntry.id)
         }
+    }
+
+    /**
+     * Deflates the dex files, as [ApkBundle.mergeModules] ends up doing.
+     *
+     * The base stores them uncompressed and this APK is embedded whole into the patched one, so
+     * keeping them stored would grow the output by their full size for no runtime gain.
+     */
+    private fun deflateDexFiles(module: ApkModule) {
+        val uncompressedFiles = module.uncompressedFiles
+        module.zipEntryMap.toArray()
+            .map { it.alias }
+            .filter { DexFileInputSource.isDexName(it) }
+            .forEach(uncompressedFiles::removePath)
     }
 
     private fun applyExtractNativeLibs(module: ApkModule) {
