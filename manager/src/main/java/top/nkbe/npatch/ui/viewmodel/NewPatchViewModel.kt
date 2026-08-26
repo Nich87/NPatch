@@ -32,6 +32,12 @@ class NewPatchViewModel : ViewModel() {
         private const val TAG = "NewPatchViewModel"
         private const val KNOT_PACKAGE_NAME = "app.zipper.knot"
 
+        /** パッチログの保持上限。verbose 時は zip エントリ 1 件ごとに 1 行出る。 */
+        private const val MAX_LOG_LINES = 2000
+
+        /** 上限到達時にまとめて捨てる行数。1行ずつ削ると毎回全要素がシフトする。 */
+        private const val LOG_TRIM_CHUNK = 256
+
         /** versionCode に指定できる下限値。 */
         const val MIN_VERSION_CODE = 1L
 
@@ -113,22 +119,30 @@ class NewPatchViewModel : ViewModel() {
         }
     }
 
+    /** [MAX_LOG_LINES] を超えた分は古い行から捨てる。 */
+    private fun appendLog(level: Int, msg: String) {
+        if (logs.size >= MAX_LOG_LINES + LOG_TRIM_CHUNK) {
+            logs.removeRange(0, LOG_TRIM_CHUNK)
+        }
+        logs += level to msg
+    }
+
     private val logger = object : Logger() {
         override fun d(msg: String) {
             if (verbose) {
                 Log.d(TAG, msg)
-                logs += Log.DEBUG to msg
+                appendLog(Log.DEBUG, msg)
             }
         }
 
         override fun i(msg: String) {
             Log.i(TAG, msg)
-            logs += Log.INFO to msg
+            appendLog(Log.INFO, msg)
         }
 
         override fun e(msg: String) {
             Log.e(TAG, msg)
-            logs += Log.ERROR to msg
+            appendLog(Log.ERROR, msg)
         }
     }
 

@@ -60,6 +60,11 @@ class LSPApplication : Application() {
         tmpApkDir = cacheDir.resolve("apk").also { it.mkdir() }
         prefs = lspApp.getSharedPreferences("settings", Context.MODE_PRIVATE)
         ManagerLogger.init()
+
+        // onCreate runs in every process. :patcher needs only the paths and preferences above;
+        // Shizuku, receivers and the installed app list would spend the heap split off for it.
+        if (!isMainProcess()) return
+
         ShizukuApi.init()
         ShizukuApi.addOnReadyListener {
             globalScope.launch {
@@ -71,6 +76,9 @@ class LSPApplication : Application() {
             NeoPackageManager.fetchAppList() 
         }
     }
+
+    /** True in the manager process, false in `:patcher` and any other subprocess. */
+    private fun isMainProcess(): Boolean = getProcessName() == packageName
 
     companion object {
         private const val LEGACY_NYA_LANGUAGE_TAG = "zh-x-nya"
