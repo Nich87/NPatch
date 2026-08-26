@@ -4,12 +4,12 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.util.Log
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import nkbe.util.ModuleMetadataReader
 import nkbe.util.ModulePipeline
@@ -25,6 +25,7 @@ import top.nkbe.npatch.share.Constants
 import top.nkbe.npatch.share.PatchConfig
 import top.nkbe.npatch.util.LINE_PACKAGE_NAME
 import top.nkbe.npatch.util.formatLineVersionName
+import java.util.concurrent.atomic.AtomicBoolean
 
 class NewPatchViewModel : ViewModel() {
 
@@ -35,8 +36,8 @@ class NewPatchViewModel : ViewModel() {
         /** パッチログの保持上限。verbose 時は zip エントリ 1 件ごとに 1 行出る。 */
         private const val MAX_LOG_LINES = 2000
 
-        /** 上限到達時にまとめて捨てる行数。1行ずつ削ると毎回全要素がシフトする。 */
-        private const val LOG_TRIM_CHUNK = 256
+        /** ログ再描画の間隔。1行ごとに不変リストを作り直すとコピーが支配的になる。 */
+        private const val LOG_PUBLISH_INTERVAL_MS = 100L
 
         /** versionCode に指定できる下限値。 */
         const val MIN_VERSION_CODE = 1L
@@ -109,22 +110,51 @@ class NewPatchViewModel : ViewModel() {
         private set
     private lateinit var patchConfig: PatchConfig
 
-    val logs = mutableStateListOf<Pair<Int, String>>()
+    /**
+     * 表示用のログ。追記はパッチプロセスからのコールバックスレッドで起きるため、
+     * 可変リストを共有せず不変リストを差し替える。LazyColumn が読んでいる最中に
+     * 縮むとインデックスが範囲外になる。
+     */
+    var logs by mutableStateOf<List<Pair<Int, String>>>(emptyList())
+        private set
+
+    private val logBuffer = ArrayDeque<Pair<Int, String>>()
+    private val logsDirty = AtomicBoolean(false)
+
+    init {
+        viewModelScope.launch {
+            while (true) {
+                delay(LOG_PUBLISH_INTERVAL_MS)
+                if (logsDirty.compareAndSet(true, false)) publishLogs()
+            }
+        }
+    }
 
     private fun updateLastLog(msg: String) {
-        if (logs.isNotEmpty()) {
-            logs[logs.lastIndex] = Log.INFO to msg
-        } else {
-            logs += Log.INFO to msg
+        synchronized(logBuffer) {
+            if (logBuffer.isNotEmpty()) logBuffer.removeLast()
+            logBuffer.addLast(Log.INFO to msg)
         }
+        logsDirty.set(true)
     }
 
     /** [MAX_LOG_LINES] を超えた分は古い行から捨てる。 */
     private fun appendLog(level: Int, msg: String) {
-        if (logs.size >= MAX_LOG_LINES + LOG_TRIM_CHUNK) {
-            logs.removeRange(0, LOG_TRIM_CHUNK)
+        synchronized(logBuffer) {
+            logBuffer.addLast(level to msg)
+            while (logBuffer.size > MAX_LOG_LINES) logBuffer.removeFirst()
         }
-        logs += level to msg
+        logsDirty.set(true)
+    }
+
+    private fun clearLogs() {
+        synchronized(logBuffer) { logBuffer.clear() }
+        logsDirty.set(false)
+        publishLogs()
+    }
+
+    private fun publishLogs() {
+        logs = synchronized(logBuffer) { logBuffer.toList() }
     }
 
     private val logger = object : Logger() {
@@ -173,7 +203,7 @@ class NewPatchViewModel : ViewModel() {
         outputLog = true
         hideLibs = false
         embeddedModules = emptyList()
-        logs.clear()
+        clearLogs()
         hasExecutedIntent = false
     }
 
