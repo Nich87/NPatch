@@ -31,6 +31,28 @@ class NewPatchViewModel : ViewModel() {
     companion object {
         private const val TAG = "NewPatchViewModel"
         private const val KNOT_PACKAGE_NAME = "app.zipper.knot"
+
+        /** versionCode に指定できる下限値。 */
+        const val MIN_VERSION_CODE = 1L
+
+        /** AndroidManifest の versionCode は 32bit 符号付き整数のため上限は Int.MAX_VALUE。 */
+        const val MAX_VERSION_CODE = Int.MAX_VALUE.toLong()
+
+        /**
+         * 上書きの既定値。上限値にしておくと Play ストアが更新を検出しなくなり、
+         * かつ既存のインストールに対して常に上書きインストールできる。
+         */
+        const val DEFAULT_VERSION_CODE = MAX_VERSION_CODE
+
+        /**
+         * 入力文字列を versionCode として使える値に丸める。
+         * 数字以外や空文字は [DEFAULT_VERSION_CODE]、範囲外の値は
+         * [MIN_VERSION_CODE]..[MAX_VERSION_CODE] に収める。
+         */
+        fun sanitizeVersionCode(value: String): Int =
+            (value.toLongOrNull() ?: DEFAULT_VERSION_CODE)
+                .coerceIn(MIN_VERSION_CODE, MAX_VERSION_CODE)
+                .toInt()
     }
 
     enum class PatchState {
@@ -64,7 +86,7 @@ class NewPatchViewModel : ViewModel() {
     var newPackageName by mutableStateOf("")
     var debuggable by mutableStateOf(false)
     var overrideVersionCode by mutableStateOf(false)
-    var overrideVersionCodeValue by mutableStateOf("1")
+    var overrideVersionCodeValue by mutableStateOf(DEFAULT_VERSION_CODE.toString())
     var sigBypassLevel by mutableStateOf(2)
     var injectProvider by mutableStateOf(false)
     var useMicroG by mutableStateOf(true)
@@ -128,7 +150,7 @@ class NewPatchViewModel : ViewModel() {
         newPackageName = ""
         debuggable = false
         overrideVersionCode = false
-        overrideVersionCodeValue = "1"
+        overrideVersionCodeValue = DEFAULT_VERSION_CODE.toString()
         sigBypassLevel = 2
         injectProvider = false
         useMicroG = true
@@ -185,7 +207,7 @@ class NewPatchViewModel : ViewModel() {
         val patchHideLibs =
             hideLibs &&
                 patchSigBypassLevel > Constants.SIGBYPASS_NONE
-        val patchVersionCode = overrideVersionCodeValue.toIntOrNull()?.takeIf { it > 0 } ?: 1
+        val patchVersionCode = sanitizeVersionCode(overrideVersionCodeValue)
         sigBypassLevel = patchSigBypassLevel
         hideLibs = patchHideLibs
         overrideVersionCodeValue = patchVersionCode.toString()

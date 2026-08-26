@@ -138,7 +138,7 @@ public class NPatch {
     @Parameter(names = {"-r", "--allowdown"}, description = "Allow downgrade installation by overriding versionCode to 1 (In most cases, the app can still get the correct versionCode)")
     private boolean overrideVersionCode = false;
 
-    @Parameter(names = {"--versioncode"}, description = "Custom versionCode used when --allowdown is enabled. default 1")
+    @Parameter(names = {"--versioncode"}, description = "Custom versionCode used when --allowdown is enabled, between 1 and 2147483647. default 1")
     private int overrideVersionCodeValue = 1;
 
     @Parameter(names = {"-v", "--verbose"}, description = "Verbose output")
@@ -202,6 +202,10 @@ public class NPatch {
         if (sigbypassLevel < Constants.SIGBYPASS_NONE ||
                 sigbypassLevel > Constants.SIGBYPASS_EXTREME) {
             logger.e("Signature bypass level must be between 0 and 3\n");
+            help = true;
+        }
+        if (overrideVersionCode && overrideVersionCodeValue < 1) {
+            logger.e("Custom versionCode must be between 1 and " + Integer.MAX_VALUE + "\n");
             help = true;
         }
         if (!"sha1".equals(microgSignatureHash) && !"sha256".equals(microgSignatureHash)) {
