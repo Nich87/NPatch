@@ -39,8 +39,9 @@ class NewPatchViewModel : ViewModel() {
         const val MAX_VERSION_CODE = Int.MAX_VALUE.toLong()
 
         /**
-         * 上書きの既定値。上限値にしておくと Play ストアが更新を検出しなくなり、
-         * かつ既存のインストールに対して常に上書きインストールできる。
+         * 上書きの既定値。上限値にしておくことで、パッケージ名と署名が一致し
+         * かつこの値が既存のインストール版以上であれば、Play ストアの更新検出回避や
+         * 上書きインストールが可能になる。
          */
         const val DEFAULT_VERSION_CODE = MAX_VERSION_CODE
 

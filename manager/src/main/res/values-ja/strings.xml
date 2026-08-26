@@ -61,7 +61,7 @@
     <string name="patch_sigbypasslv2">lv2: PMをバイパス + openat (libc)</string>
     <string name="patch_sigbypasslv3">lv3: Parcel生成をフック</string>
     <string name="patch_override_version_code">バージョンコードを上書き</string>
-    <string name="patch_override_version_code_desc">パッチを適用するアプリのバージョンコードをカスタム値に上書きします。既定値は最大値の 2147483647 です。\nPlay ストアが更新を検出しなくなり、既存のアプリへの上書きインストールも可能になります。アプリが通常時に認識するバージョンコードには影響は与えません。</string>
+    <string name="patch_override_version_code_desc">パッチを適用するアプリのバージョンコードをカスタム値に上書きします。既定値は最大値の 2147483647 です。\nパッケージ名と署名証明書が一致し、かつこの値が既存のインストール版のバージョンコード以上である場合、Play ストアの更新検出を回避でき、既存のアプリへの上書きインストールも可能になります。アプリが通常時に認識するバージョンコードには影響は与えません。</string>
     <string name="patch_custom_version_code">カスタムバージョンコード</string>
     <string name="patch_start">パッチを開始</string>
     <string name="patch_return">戻る</string>

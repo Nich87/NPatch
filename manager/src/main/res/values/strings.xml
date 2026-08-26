@@ -140,7 +140,7 @@
     <string name="patch_new_package">Patch New PackageName</string>
     <string name="hint_patch_new_package">Input a new package for app</string>
     <string name="patch_override_version_code">Override version code</string>
-    <string name="patch_override_version_code_desc">Override the patched app\'s version code with a custom value, defaulting to the maximum 2147483647.\nThis keeps the Play Store from offering updates and lets the app install over an existing copy, and generally does not affect the version code actually perceived by the application</string>
+    <string name="patch_override_version_code_desc">Override the patched app\'s version code with a custom value, defaulting to the maximum 2147483647.\nWhen the package name and signing certificate match the installed app and this value is greater than or equal to the installed app\'s version code, this may prevent the Play Store from offering updates and allow installation over the existing copy. Generally does not affect the version code actually perceived by the application</string>
     <string name="patch_custom_version_code">Custom version code</string>
     <string name="patch_inject_mt_provider">Inject Files Provider</string>
     <string name="patch_inject_mt_provider_desc">Inject file providers to manage files in the data directory without root privileges (From MT Manager)</string>
