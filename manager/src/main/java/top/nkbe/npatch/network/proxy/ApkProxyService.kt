@@ -7,6 +7,7 @@ import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -143,51 +144,57 @@ class ApkProxyService(
         logger.i("$prefix Downloading $fileName...")
 
         val request = Request.Builder().url("$baseUrl/apk/file/$fileName$vParam").build()
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                throw IllegalStateException("Failed to download $fileName (HTTP ${response.code})")
-            }
+        val call = client.newCall(request)
+        val cancelOnStop = currentCoroutineContext().job.invokeOnCompletion { call.cancel() }
+        try {
+            call.execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IllegalStateException("Failed to download $fileName (HTTP ${response.code})")
+                }
 
-            val body = response.body
-            val totalBytes = body.contentLength()
+                val body = response.body
+                val totalBytes = body.contentLength()
 
-            body.byteStream().use { input ->
-                FileOutputStream(partFile).use { output ->
-                    val buffer = ByteArray(64 * 1024)
-                    var bytesRead: Int
-                    var fileBytes = 0L
-                    var lastLoggedTime = 0L
+                body.byteStream().use { input ->
+                    FileOutputStream(partFile).use { output ->
+                        val buffer = ByteArray(64 * 1024)
+                        var bytesRead: Int
+                        var fileBytes = 0L
+                        var lastLoggedTime = 0L
 
-                    while (input.read(buffer).also { bytesRead = it } != -1) {
-                        currentCoroutineContext().ensureActive()
-                        output.write(buffer, 0, bytesRead)
-                        fileBytes += bytesRead
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            currentCoroutineContext().ensureActive()
+                            output.write(buffer, 0, bytesRead)
+                            fileBytes += bytesRead
 
-                        val now = System.currentTimeMillis()
-                        if (now - lastLoggedTime > PROGRESS_INTERVAL_MS || fileBytes == totalBytes) {
-                            lastLoggedTime = now
-                            val percent = if (totalBytes > 0) {
-                                ((fileBytes * 100) / totalBytes).toInt().coerceIn(0, 100)
-                            } else {
-                                UNKNOWN_PERCENT
+                            val now = System.currentTimeMillis()
+                            if (now - lastLoggedTime > PROGRESS_INTERVAL_MS || fileBytes == totalBytes) {
+                                lastLoggedTime = now
+                                val percent = if (totalBytes > 0) {
+                                    ((fileBytes * 100) / totalBytes).toInt().coerceIn(0, 100)
+                                } else {
+                                    UNKNOWN_PERCENT
+                                }
+                                val transferred = if (percent == UNKNOWN_PERCENT) {
+                                    "(${fileBytes.toMbString()} MB)"
+                                } else {
+                                    "$percent% (${fileBytes.toMbString()} / ${totalBytes.toMbString()} MB)"
+                                }
+                                report(
+                                    DownloadProgress(
+                                        fileIndex = fileIndex,
+                                        fileCount = fileCount,
+                                        percent = percent,
+                                        message = "$prefix Downloading $fileName... $transferred",
+                                    ),
+                                )
                             }
-                            val transferred = if (percent == UNKNOWN_PERCENT) {
-                                "(${fileBytes.toMbString()} MB)"
-                            } else {
-                                "$percent% (${fileBytes.toMbString()} / ${totalBytes.toMbString()} MB)"
-                            }
-                            report(
-                                DownloadProgress(
-                                    fileIndex = fileIndex,
-                                    fileCount = fileCount,
-                                    percent = percent,
-                                    message = "$prefix Downloading $fileName... $transferred",
-                                ),
-                            )
                         }
                     }
                 }
             }
+        } finally {
+            cancelOnStop.dispose()
         }
 
         targetFile.delete()
