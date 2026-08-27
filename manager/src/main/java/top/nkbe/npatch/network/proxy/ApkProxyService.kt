@@ -5,6 +5,8 @@ import android.os.Build
 import android.util.DisplayMetrics
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -76,13 +78,21 @@ class ApkProxyService(
         }.getOrDefault(VersionListResult())
     }
 
+    data class DownloadProgress(
+        val fileIndex: Int,
+        val fileCount: Int,
+        /** ファイル単位の進捗率。長さ不明なら [UNKNOWN_PERCENT]。 */
+        val percent: Int,
+        val message: String,
+    )
+
     suspend fun downloadLineApksForPatcher(
         logger: Logger,
         targetVersionCode: Long? = null,
         fileNames: List<String> = getSplitFilesForDevice(context),
-        onProgressUpdate: ((String) -> Unit)? = null,
+        onProgress: ((DownloadProgress) -> Unit)? = null,
     ): List<File> = withContext(Dispatchers.IO) {
-        val notifyCompleted = onProgressUpdate ?: logger::i
+        val report: (DownloadProgress) -> Unit = onProgress ?: { logger.i(it.message) }
 
         val resolvedVersionCode = targetVersionCode ?: resolveTargetVersionCode(logger)
         val vParam = resolvedVersionCode?.takeIf { it > 0 }?.let { "?v=$it" }.orEmpty()
@@ -94,7 +104,7 @@ class ApkProxyService(
 
         if (resolvedVersionCode != null && cachedFiles.all { it.isFile && it.length() > 0 }) {
             val totalBytes = cachedFiles.sumOf { it.length() }
-            notifyCompleted("[Proxy] Reusing cached APKs for $resolvedVersionCode (${totalBytes.toMbString()} MB), skipping download.")
+            logger.i("[Proxy] Reusing cached APKs for $resolvedVersionCode (${totalBytes.toMbString()} MB), skipping download.")
             return@withContext cachedFiles
         }
 
@@ -102,23 +112,33 @@ class ApkProxyService(
         logger.i("[Proxy] Connecting to $baseUrl...")
 
         fileNames.mapIndexed { index, fileName ->
-            val prefix = "[Proxy] [${index + 1}/${fileNames.size}]"
-            val downloaded = downloadSplit(fileName, versionDir, vParam, prefix, logger, onProgressUpdate)
-            notifyCompleted("$prefix $fileName (${downloaded.length().toMbString()} MB) downloaded successfully.")
+            val fileIndex = index + 1
+            val downloaded = downloadSplit(fileName, versionDir, vParam, fileIndex, fileNames.size, logger, report)
+            report(
+                DownloadProgress(
+                    fileIndex = fileIndex,
+                    fileCount = fileNames.size,
+                    percent = 100,
+                    message = "${filePrefix(fileIndex, fileNames.size)} $fileName " +
+                        "(${downloaded.length().toMbString()} MB) downloaded successfully.",
+                ),
+            )
             downloaded
         }.also { keepOnlyCachedVersion(versionDir) }
     }
 
-    private fun downloadSplit(
+    private suspend fun downloadSplit(
         fileName: String,
         versionDir: File,
         vParam: String,
-        prefix: String,
+        fileIndex: Int,
+        fileCount: Int,
         logger: Logger,
-        onProgressUpdate: ((String) -> Unit)?,
+        report: (DownloadProgress) -> Unit,
     ): File {
         val targetFile = File(versionDir, fileName)
         val partFile = File(versionDir, "$fileName$PART_SUFFIX")
+        val prefix = filePrefix(fileIndex, fileCount)
 
         logger.i("$prefix Downloading $fileName...")
 
@@ -139,19 +159,31 @@ class ApkProxyService(
                     var lastLoggedTime = 0L
 
                     while (input.read(buffer).also { bytesRead = it } != -1) {
+                        currentCoroutineContext().ensureActive()
                         output.write(buffer, 0, bytesRead)
                         fileBytes += bytesRead
 
                         val now = System.currentTimeMillis()
                         if (now - lastLoggedTime > PROGRESS_INTERVAL_MS || fileBytes == totalBytes) {
                             lastLoggedTime = now
-                            val progress = if (totalBytes > 0) {
-                                val percent = ((fileBytes * 100) / totalBytes).toInt().coerceIn(0, 100)
-                                "$percent% (${fileBytes.toMbString()} / ${totalBytes.toMbString()} MB)"
+                            val percent = if (totalBytes > 0) {
+                                ((fileBytes * 100) / totalBytes).toInt().coerceIn(0, 100)
                             } else {
-                                "(${fileBytes.toMbString()} MB)"
+                                UNKNOWN_PERCENT
                             }
-                            onProgressUpdate?.invoke("$prefix Downloading $fileName... $progress")
+                            val transferred = if (percent == UNKNOWN_PERCENT) {
+                                "(${fileBytes.toMbString()} MB)"
+                            } else {
+                                "$percent% (${fileBytes.toMbString()} / ${totalBytes.toMbString()} MB)"
+                            }
+                            report(
+                                DownloadProgress(
+                                    fileIndex = fileIndex,
+                                    fileCount = fileCount,
+                                    percent = percent,
+                                    message = "$prefix Downloading $fileName... $transferred",
+                                ),
+                            )
                         }
                     }
                 }
@@ -164,6 +196,8 @@ class ApkProxyService(
         }
         return targetFile
     }
+
+    private fun filePrefix(fileIndex: Int, fileCount: Int) = "[Proxy] [$fileIndex/$fileCount]"
 
     private fun keepOnlyCachedVersion(keep: File) {
         cacheDir(context).listFiles()
@@ -190,6 +224,8 @@ class ApkProxyService(
     }
 
     companion object {
+        const val UNKNOWN_PERCENT = -1
+
         const val DEFAULT_BASE_URL = "https://2ipper.com"
         const val DEFAULT_VERSIONS_URL =
             "https://raw.githubusercontent.com/2b-zipper/line-versions/main/versions.json"
@@ -207,6 +243,12 @@ class ApkProxyService(
 
         fun clearCache(context: Context) {
             cacheDir(context).deleteRecursively()
+        }
+
+        fun deletePartialDownloads(context: Context) {
+            cacheDir(context).walkBottomUp()
+                .filter { it.isFile && it.name.endsWith(PART_SUFFIX) }
+                .forEach { it.delete() }
         }
 
         fun getSplitFilesForDevice(context: Context): List<String> {

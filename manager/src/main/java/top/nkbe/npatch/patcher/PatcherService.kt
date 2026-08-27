@@ -3,6 +3,7 @@ package top.nkbe.npatch.patcher
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import android.os.Process
 import android.os.RemoteException
 import android.util.Log
 import top.nkbe.npatch.SplitMerger
@@ -38,6 +39,11 @@ class PatcherService : Service() {
             thread(name = "npatch-patcher") {
                 runPatch(configArgs, inputApkPaths, newPackageName, verbose, callback)
             }
+        }
+
+        override fun abort() {
+            Log.i(TAG, "Aborting patch, ending the patcher process")
+            Process.killProcess(Process.myPid())
         }
     }
 

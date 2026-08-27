@@ -3,28 +3,39 @@ package top.nkbe.npatch.ui.viewmodel
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import nkbe.util.ModuleMetadataReader
 import nkbe.util.ModulePipeline
 import nkbe.util.NeoPackageManager
 import nkbe.util.NeoPackageManager.AppInfo
 import top.nkbe.npatch.Patcher
+import top.nkbe.npatch.R
 import top.nkbe.npatch.config.ConfigManager
 import top.nkbe.npatch.database.entity.Module
 import top.nkbe.npatch.lspApp
 import top.nkbe.npatch.network.proxy.ApkProxyService
 import top.nkbe.npatch.patch.util.Logger
+import top.nkbe.npatch.service.PatchForegroundService
 import top.nkbe.npatch.share.Constants
 import top.nkbe.npatch.share.PatchConfig
 import top.nkbe.npatch.util.LINE_PACKAGE_NAME
 import top.nkbe.npatch.util.formatLineVersionName
+import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 class NewPatchViewModel : ViewModel() {
@@ -61,10 +72,26 @@ class NewPatchViewModel : ViewModel() {
             (value.toLongOrNull() ?: DEFAULT_VERSION_CODE)
                 .coerceIn(MIN_VERSION_CODE, MAX_VERSION_CODE)
                 .toInt()
+
+        private val STAGE_MARKERS = listOf(
+            "Connecting to" to R.string.patch_stage_connecting,
+            "Merging " to R.string.patch_stage_merging,
+            "Parsing original apk" to R.string.patch_stage_parsing,
+            "Packing split apk" to R.string.patch_stage_writing,
+            "Patching apk" to R.string.patch_stage_patching,
+            "Adding config" to R.string.patch_stage_config,
+            "Adding loader dex" to R.string.patch_stage_loader,
+            "Adding native lib" to R.string.patch_stage_native,
+            "Embedding modules" to R.string.patch_stage_modules,
+            "Adding metaloader dex" to R.string.patch_stage_metaloader,
+            "Writing apk" to R.string.patch_stage_writing,
+            "Exporting" to R.string.patch_stage_exporting,
+        )
+
     }
 
     enum class PatchState {
-        INIT, SELECTING, CONFIGURING, PATCHING, FINISHED, ERROR
+        INIT, SELECTING, CONFIGURING, PATCHING, CANCELLING, CANCELLED, FINISHED, ERROR
     }
 
     enum class InstallMethod {
@@ -77,6 +104,7 @@ class NewPatchViewModel : ViewModel() {
         data class ConfigureProxyLinePatch(val targetVersionCode: Long? = null) : ViewAction()
         object SubmitPatch : ViewAction()
         object LaunchPatch : ViewAction()
+        object CancelPatch : ViewAction()
     }
 
     data class ProxyRequest(val targetVersionCode: Long?)
@@ -87,7 +115,10 @@ class NewPatchViewModel : ViewModel() {
     var proxyRequest by mutableStateOf<ProxyRequest?>(null)
         private set
 
-    // Patch Configuration
+    var currentStage by mutableStateOf("")
+        private set
+
+    // パッチ設定
     @set:JvmName("_setUseManager")
     var useManager by mutableStateOf(true)
         private set
@@ -103,6 +134,9 @@ class NewPatchViewModel : ViewModel() {
     var hideLibs by mutableStateOf(false)
     var embeddedModules by mutableStateOf<List<AppInfo>>(emptyList())
     var hasExecutedIntent by mutableStateOf(false)
+
+    private var patchJob: Job? = null
+    private var preservedApkFiles: List<File>? = null
 
     lateinit var patchApp: AppInfo
         private set
@@ -138,6 +172,29 @@ class NewPatchViewModel : ViewModel() {
         logsDirty.set(true)
     }
 
+    private fun applyStage(msg: String) {
+        val marker = STAGE_MARKERS.firstOrNull { msg.contains(it.first) } ?: return
+        updateStage(marker.second)
+    }
+
+    private fun onDownloadProgress(progress: ApkProxyService.DownloadProgress) {
+        updateLastLog(progress.message)
+        val detail = buildString {
+            append("(${progress.fileIndex}/${progress.fileCount})")
+            if (progress.percent != ApkProxyService.UNKNOWN_PERCENT) append(" ${progress.percent}%")
+        }
+        updateStage(R.string.patch_stage_downloading, detail)
+    }
+
+    /** ダウンロード中は毎秒十数回進捗が来るため、表示が変わるときだけ通知を更新する。 */
+    private fun updateStage(@StringRes resId: Int, detail: String = "") {
+        val stage = lspApp.getString(resId)
+        val text = if (detail.isEmpty()) stage else "$stage $detail"
+        if (text == currentStage) return
+        currentStage = text
+        PatchForegroundService.updateProgress(lspApp, text)
+    }
+
     /** [MAX_LOG_LINES] を超えた分は古い行から捨てる。 */
     private fun appendLog(level: Int, msg: String) {
         synchronized(logBuffer) {
@@ -168,6 +225,7 @@ class NewPatchViewModel : ViewModel() {
         override fun i(msg: String) {
             Log.i(TAG, msg)
             appendLog(Log.INFO, msg)
+            applyStage(msg)
         }
 
         override fun e(msg: String) {
@@ -184,6 +242,7 @@ class NewPatchViewModel : ViewModel() {
                 is ViewAction.ConfigureProxyLinePatch -> configureProxyLinePatch(action.targetVersionCode)
                 is ViewAction.SubmitPatch -> submitPatch()
                 is ViewAction.LaunchPatch -> launchPatch()
+                is ViewAction.CancelPatch -> cancelPatch()
             }
         }
     }
@@ -204,6 +263,7 @@ class NewPatchViewModel : ViewModel() {
         hideLibs = false
         embeddedModules = emptyList()
         clearLogs()
+        currentStage = ""
         hasExecutedIntent = false
     }
 
@@ -290,35 +350,79 @@ class NewPatchViewModel : ViewModel() {
         }
     )
 
-    private suspend fun launchPatch() {
-        logger.i("Launch Patch")
-        patchState = try {
-            val options = proxyRequest
-                ?.let { buildPatchOptions(apkPaths = downloadProxyApks(it)) }
-                ?: patchOptions
+    /** アプリスコープで実行して画面を離れても継続させ、フォアグラウンドサービスでプロセスを保持する。 */
+    private fun launchPatch() {
+        if (patchJob?.isActive == true) return
+        preservedApkFiles = lspApp.targetApkFiles?.toList()
+        currentStage = lspApp.getString(R.string.patch_stage_preparing)
+        PatchForegroundService.start(lspApp, currentStage)
+        patchJob = lspApp.globalScope.launch(Dispatchers.Main.immediate) {
+            logger.i("Launch Patch")
+            val result = try {
+                val options = proxyRequest
+                    ?.let { buildPatchOptions(apkPaths = downloadProxyApks(it)) }
+                    ?: patchOptions
 
-            logger.i("[Patch] Starting LSPatch engine...")
-            Patcher.patch(logger, options)
-            logger.i("[Patch] Patching completed successfully!")
+                logger.i("[Patch] Starting LSPatch engine...")
+                Patcher.patch(logger, options)
+                logger.i("[Patch] Patching completed successfully!")
 
-            // 自動で Knot モジュールをスコープ登録
-            runCatching { autoScopeKnot() }
-                .onFailure { logger.e("Auto-scope Knot failed: ${it.message}") }
-            PatchState.FINISHED
-        } catch (t: Throwable) {
-            logger.e(t.message.orEmpty())
-            logger.e(t.stackTraceToString())
-            PatchState.ERROR
-        } finally {
-            NeoPackageManager.cleanTmpApkDir()
+                // 自動で Knot モジュールをスコープ登録
+                runCatching { autoScopeKnot() }
+                    .onFailure { logger.e("Auto-scope Knot failed: ${it.message}") }
+                PatchState.FINISHED
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (t: Throwable) {
+                logger.e(t.message.orEmpty())
+                logger.e(t.stackTraceToString())
+                PatchState.ERROR
+            } finally {
+                withContext(NonCancellable) { NeoPackageManager.cleanTmpApkDir() }
+            }
+            // 中止された場合の状態遷移と後始末は cancelPatch 側が受け持つ
+            if (isActive) {
+                patchState = result
+                PatchForegroundService.stop(lspApp)
+            }
         }
+    }
+
+    private fun cancelPatch() {
+        val job = patchJob
+        if (job == null || !job.isActive) {
+            patchState = PatchState.CANCELLED
+            return
+        }
+        patchState = PatchState.CANCELLING
+        logger.i("[Patch] Aborting patch, cleaning up...")
+        PatchForegroundService.updateProgress(lspApp, lspApp.getString(R.string.patch_cancelling))
+        lspApp.globalScope.launch {
+            abortPatch(job)
+            patchState = PatchState.CANCELLED
+        }
+    }
+
+    private suspend fun abortPatch(job: Job) {
+        job.cancelAndJoin()
+        patchJob = null
+        Patcher.discardArtifacts(preservedApkFiles)
+        preservedApkFiles = null
+        PatchForegroundService.stop(lspApp)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        val job = patchJob ?: return
+        if (!job.isActive) return
+        lspApp.globalScope.launch { abortPatch(job) }
     }
 
     private suspend fun downloadProxyApks(request: ProxyRequest): List<String> {
         val downloadedFiles = ApkProxyService(lspApp).downloadLineApksForPatcher(
             logger = logger,
             targetVersionCode = request.targetVersionCode,
-            onProgressUpdate = ::updateLastLog,
+            onProgress = ::onDownloadProgress,
         )
         NeoPackageManager.getAppInfoFromApks(downloadedFiles.map { it.toUri() })
             .onSuccess { appList -> appList.firstOrNull()?.let { patchApp = it } }

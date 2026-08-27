@@ -14,6 +14,7 @@ import top.nkbe.npatch.patch.util.Logger
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -34,10 +35,19 @@ object PatcherClient {
             logger.verbose = verbose
             val settled = AtomicBoolean(false)
             var connection: ServiceConnection? = null
+            val service = AtomicReference<IPatcherService?>()
 
             fun unbind() {
                 connection?.let { runCatching { context.unbindService(it) } }
                 connection = null
+                service.set(null)
+            }
+
+            fun abort() {
+                if (settled.compareAndSet(false, true)) {
+                    runCatching { service.get()?.abort() }
+                    unbind()
+                }
             }
 
             fun finish(block: () -> Unit) {
@@ -70,15 +80,16 @@ object PatcherClient {
 
             val serviceConnection = object : ServiceConnection {
                 override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-                    val service = IPatcherService.Stub.asInterface(binder)
-                    if (service == null) {
+                    val connected = IPatcherService.Stub.asInterface(binder)
+                    service.set(connected)
+                    if (connected == null) {
                         finish {
                             continuation.resumeWithException(IOException("Patcher service is unavailable"))
                         }
                         return
                     }
                     runCatching {
-                        service.patch(
+                        connected.patch(
                             options.configArgs(),
                             options.inputApks.map { it.absolutePath }.toTypedArray(),
                             options.newPackageName,
@@ -105,7 +116,7 @@ object PatcherClient {
             }
             connection = serviceConnection
 
-            continuation.invokeOnCancellation { finish {} }
+            continuation.invokeOnCancellation { abort() }
 
             val intent = Intent(context, PatcherService::class.java)
             val bound = context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)

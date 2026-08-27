@@ -17,4 +17,6 @@ interface IPatcherService {
         String newPackageName,
         boolean verbose,
         IPatcherCallback callback);
+
+    void abort();
 }

@@ -69,6 +69,27 @@
     <string name="patch_install_successfully">正常にインストールされました</string>
     <string name="patch_install_failed">インストールに失敗しました</string>
     <string name="patch_no_xposed_module">Xposedモジュールが見つかりませんでした</string>
+    <string name="patch_abort_title">パッチ処理を中止しますか？</string>
+    <string name="patch_abort_message">パッチ処理を強制終了します。生成中のAPKと一時ファイルはすべて削除されます。</string>
+    <string name="patch_abort_confirm">中止する</string>
+    <string name="patch_cancelling">中止しています</string>
+    <string name="patch_cancelled">パッチ処理を中止しました</string>
+    <string name="patch_stage_preparing">準備中…</string>
+    <string name="patch_stage_connecting">プロキシに接続中…</string>
+    <string name="patch_stage_downloading">APKをダウンロード中…</string>
+    <string name="patch_stage_merging">分割APKを結合中…</string>
+    <string name="patch_stage_parsing">APKを解析中…</string>
+    <string name="patch_stage_patching">APKにパッチを適用中…</string>
+    <string name="patch_stage_config">設定を追加中…</string>
+    <string name="patch_stage_loader">ローダーを追加中…</string>
+    <string name="patch_stage_native">ネイティブライブラリを追加中…</string>
+    <string name="patch_stage_modules">モジュールを埋め込み中…</string>
+    <string name="patch_stage_metaloader">メタローダーを追加中…</string>
+    <string name="patch_stage_writing">APKを書き出し中…</string>
+    <string name="patch_stage_exporting">保存先に出力中…</string>
+    <string name="patch_notification_channel">パッチ処理</string>
+    <string name="patch_notification_title">パッチ処理中</string>
+    <string name="patch_notification_text">バックグラウンドで処理を継続しています</string>
     <!-- Select Apps Screen -->
     <string name="screen_select_apps">アプリを選択</string>
     <!-- Settings Screen -->

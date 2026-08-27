@@ -1,6 +1,7 @@
 package top.nkbe.npatch.ui.page
 
 import android.content.Intent
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,6 +21,7 @@ import io.github.suqi8.coui.kmp.basic.CircularProgressIndicator
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.basic.TextButton
 import io.github.suqi8.coui.kmp.overlay.OverlayDialog
+import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.launch
 import nkbe.util.NeoPackageManager
 import top.nkbe.npatch.R
@@ -67,6 +69,8 @@ fun NewPatchScreen(
 
     // インストール済みアプリが見つからない場合、ダウンロードページへ誘導するダイアログ
     var showDownloadDialog by remember { mutableStateOf(false) }
+    // パッチ実行中に戻ろうとした場合の強制終了確認ダイアログ
+    var showAbortDialog by remember { mutableStateOf(false) }
 
     // ストレージから APK を選択
     val storageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { apks ->
@@ -132,10 +136,29 @@ fun NewPatchScreen(
         }
     }
 
-    BackHandler(enabled = viewModel.patchState != PatchState.PATCHING && viewModel.patchState != PatchState.INIT) {
-        scope.launch { NeoPackageManager.cleanTmpApkDir() }
+    BackHandler(enabled = viewModel.patchState != PatchState.INIT) {
+        when (viewModel.patchState) {
+            PatchState.PATCHING -> showAbortDialog = true
+            // 中止処理中は後始末が終わるまで待つ
+            PatchState.CANCELLING -> Unit
+            else -> {
+                scope.launch { NeoPackageManager.cleanTmpApkDir() }
+                viewModel.reset()
+                navigator.pop()
+            }
+        }
+    }
+
+    LaunchedEffect(viewModel.patchState) {
+        if (viewModel.patchState != PatchState.PATCHING) showAbortDialog = false
+        if (viewModel.patchState != PatchState.CANCELLED) return@LaunchedEffect
         viewModel.reset()
         navigator.pop()
+        Toast.makeText(
+            context.applicationContext,
+            context.getString(R.string.patch_cancelled),
+            Toast.LENGTH_SHORT,
+        ).show()
     }
 
     NPatchScaffold(
@@ -147,6 +170,7 @@ fun NewPatchScreen(
                     navigator.pop()
                 }
                 PatchState.PATCHING,
+                PatchState.CANCELLING,
                 PatchState.FINISHED,
                 PatchState.ERROR -> NPatchTopAppBar(
                     title = viewModel.patchApp.app.packageName,
@@ -169,6 +193,7 @@ fun NewPatchScreen(
                     )
                 }
                 PatchState.PATCHING,
+                PatchState.CANCELLING,
                 PatchState.FINISHED,
                 PatchState.ERROR -> {
                     DoPatchBody(modifier = Modifier, navigator = navigator)
@@ -178,6 +203,16 @@ fun NewPatchScreen(
                         CircularProgressIndicator(size = 32.dp)
                     }
                 }
+            }
+
+            if (showAbortDialog) {
+                PatchAbortDialog(
+                    onConfirm = {
+                        showAbortDialog = false
+                        viewModel.dispatch(ViewAction.CancelPatch)
+                    },
+                    onDismiss = { showAbortDialog = false },
+                )
             }
 
             if (showDownloadDialog) {
@@ -196,6 +231,49 @@ fun NewPatchScreen(
                         viewModel.reset()
                         navigator.pop()
                     },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PatchAbortDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val show = remember { mutableStateOf(true) }
+    OverlayDialog(
+        title = stringResource(R.string.patch_abort_title),
+        show = show.value,
+        onDismissRequest = { show.value = false; onDismiss() },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.patch_abort_message),
+                style = COUITheme.textStyles.body2,
+                color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                TextButton(
+                    text = stringResource(android.R.string.cancel),
+                    onClick = { show.value = false; onDismiss() },
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(16.dp))
+                TextButton(
+                    text = stringResource(R.string.patch_abort_confirm),
+                    onClick = { show.value = false; onConfirm() },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.textButtonColors(),
                 )
             }
         }
