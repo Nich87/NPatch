@@ -191,6 +191,7 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                 .fillMaxWidth()
                 .weight(1f)
                 .padding(bottom = 12.dp)
+                .clip(RoundedCornerShape(20.dp))
                 .combinedClickable(
                     onClick = {},
                     onLongClick = {
@@ -203,15 +204,13 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                     }
                 ),
         ) {
-            ShimmerAnimation(enabled = running) {
+            ShimmerAnimation(modifier = Modifier.fillMaxSize(), enabled = running) {
                 ProvideTextStyle(COUITheme.textStyles.footnote1.copy(fontFamily = FontFamily.Monospace)) {
                     val scrollState = rememberLazyListState()
                     LazyColumn(
                         state = scrollState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(16.dp))
-                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
                         overscrollEffect = null
                     ) {
                         items(viewModel.logs) {
