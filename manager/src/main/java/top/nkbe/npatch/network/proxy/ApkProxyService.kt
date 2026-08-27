@@ -5,8 +5,8 @@ import android.os.Build
 import android.util.DisplayMetrics
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -135,7 +135,7 @@ class ApkProxyService(
         fileCount: Int,
         logger: Logger,
         report: (DownloadProgress) -> Unit,
-    ): File {
+    ): File = suspendCancellableCoroutine { continuation ->
         val targetFile = File(versionDir, fileName)
         val partFile = File(versionDir, "$fileName$PART_SUFFIX")
         val prefix = filePrefix(fileIndex, fileCount)
@@ -143,58 +143,65 @@ class ApkProxyService(
         logger.i("$prefix Downloading $fileName...")
 
         val request = Request.Builder().url("$baseUrl/apk/file/$fileName$vParam").build()
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) {
-                throw IllegalStateException("Failed to download $fileName (HTTP ${response.code})")
-            }
+        val call = client.newCall(request)
+        continuation.invokeOnCancellation { call.cancel() }
 
-            val body = response.body
-            val totalBytes = body.contentLength()
+        continuation.resumeWith(
+            runCatching {
+                call.execute().use { response ->
+                    if (!response.isSuccessful) {
+                        throw IllegalStateException("Failed to download $fileName (HTTP ${response.code})")
+                    }
 
-            body.byteStream().use { input ->
-                FileOutputStream(partFile).use { output ->
-                    val buffer = ByteArray(64 * 1024)
-                    var bytesRead: Int
-                    var fileBytes = 0L
-                    var lastLoggedTime = 0L
+                    val body = response.body
+                    val totalBytes = body.contentLength()
 
-                    while (input.read(buffer).also { bytesRead = it } != -1) {
-                        currentCoroutineContext().ensureActive()
-                        output.write(buffer, 0, bytesRead)
-                        fileBytes += bytesRead
+                    body.byteStream().use { input ->
+                        FileOutputStream(partFile).use { output ->
+                            val buffer = ByteArray(64 * 1024)
+                            var bytesRead: Int
+                            var fileBytes = 0L
+                            var lastLoggedTime = 0L
 
-                        val now = System.currentTimeMillis()
-                        if (now - lastLoggedTime > PROGRESS_INTERVAL_MS || fileBytes == totalBytes) {
-                            lastLoggedTime = now
-                            val percent = if (totalBytes > 0) {
-                                ((fileBytes * 100) / totalBytes).toInt().coerceIn(0, 100)
-                            } else {
-                                UNKNOWN_PERCENT
+                            while (input.read(buffer).also { bytesRead = it } != -1) {
+                                continuation.context.ensureActive()
+                                output.write(buffer, 0, bytesRead)
+                                fileBytes += bytesRead
+
+                                val now = System.currentTimeMillis()
+                                if (now - lastLoggedTime > PROGRESS_INTERVAL_MS || fileBytes == totalBytes) {
+                                    lastLoggedTime = now
+                                    val percent = if (totalBytes > 0) {
+                                        ((fileBytes * 100) / totalBytes).toInt().coerceIn(0, 100)
+                                    } else {
+                                        UNKNOWN_PERCENT
+                                    }
+                                    val transferred = if (percent == UNKNOWN_PERCENT) {
+                                        "(${fileBytes.toMbString()} MB)"
+                                    } else {
+                                        "$percent% (${fileBytes.toMbString()} / ${totalBytes.toMbString()} MB)"
+                                    }
+                                    report(
+                                        DownloadProgress(
+                                            fileIndex = fileIndex,
+                                            fileCount = fileCount,
+                                            percent = percent,
+                                            message = "$prefix Downloading $fileName... $transferred",
+                                        ),
+                                    )
+                                }
                             }
-                            val transferred = if (percent == UNKNOWN_PERCENT) {
-                                "(${fileBytes.toMbString()} MB)"
-                            } else {
-                                "$percent% (${fileBytes.toMbString()} / ${totalBytes.toMbString()} MB)"
-                            }
-                            report(
-                                DownloadProgress(
-                                    fileIndex = fileIndex,
-                                    fileCount = fileCount,
-                                    percent = percent,
-                                    message = "$prefix Downloading $fileName... $transferred",
-                                ),
-                            )
                         }
                     }
                 }
-            }
-        }
 
-        targetFile.delete()
-        if (!partFile.renameTo(targetFile)) {
-            throw IllegalStateException("Failed to finalize downloaded file $fileName")
-        }
-        return targetFile
+                targetFile.delete()
+                if (!partFile.renameTo(targetFile)) {
+                    throw IllegalStateException("Failed to finalize downloaded file $fileName")
+                }
+                targetFile
+            },
+        )
     }
 
     private fun filePrefix(fileIndex: Int, fileCount: Int) = "[Proxy] [$fileIndex/$fileCount]"
