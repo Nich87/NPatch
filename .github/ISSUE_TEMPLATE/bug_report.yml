@@ -1,21 +1,20 @@
-name: Bug report/反馈 Bug
-description: Report errors or unexpected behavior./反馈错误或异常行为。
+name: Bug report / 不具合報告
+description: Report errors or unexpected behavior. / エラーや想定外の動作を報告する
 labels: [bug]
 title: "[Bug] "
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting issues of LSPatch!
+        Thanks for reporting issues of NPatch!
 
         To make it easier for us to help you please enter detailed information below.
-        
-        感谢给 NPatch 汇报问题！
-        为了使我们更好地帮助你，请提供以下信息。
-        为了防止重复汇报，标题请务必使用英文。
+
+        NPatch への報告ありがとうございます。
+        調査しやすくするため、以下の項目をできるだけ具体的に記入してください。
   - type: textarea
     attributes:
-      label: Steps to reproduce/复现步骤
+      label: Steps to reproduce / 再現手順
       value: |
         1. 
         1. 
@@ -24,60 +23,60 @@ body:
       required: true
   - type: textarea
     attributes:
-      label: Expected behaviour/预期行为
-      placeholder: Tell us what should happen/正常情况下应该发生什么
+      label: Expected behaviour / 期待する動作
+      placeholder: Tell us what should happen. / 本来どうなるはずか
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Actual behaviour/实际行为
-      placeholder: Tell us what happens instead/实际上发生了什么
+      label: Actual behaviour / 実際の動作
+      placeholder: Tell us what happens instead. / 実際にどうなったか
     validations:
       required: true
   - type: textarea
     attributes:
-      label: Xposed Module List/Xposed 模块列表
+      label: Xposed module list / Xposed モジュール一覧
       render: Shell
     validations:
       required: true
   - type: input
     attributes:
-      label: NPatch version/NPatch 版本
-      description:  Don't use 'latest'. Specify actual version with 4 digits, otherwise your issue will be closed./不要填用“最新版”。给出四位版本号，不然 issue 会被关闭。
+      label: NPatch version / NPatch のバージョン
+      description: Don't use 'latest'. Specify the actual version with 4 digits, otherwise your issue will be closed. / 「最新版」は不可。4桁のバージョン番号を記入してください。記入が無い場合は issue を閉じます。
     validations:
       required: true
   - type: input
     attributes:
-      label: Android version/Android 版本
+      label: Android version / Android のバージョン
     validations:
       required: true
   - type: input
     attributes:
-      label: Shizuku version/Shizuku 版本
-      description: If you are not using Shizuku mode, input `N/A` instead./如果未使用 Shizuku 模式，请键入 `N/A`。
+      label: Shizuku version / Shizuku のバージョン
+      description: If you are not using Shizuku mode, input `N/A` instead. / Shizuku モードを使っていない場合は `N/A` と記入してください。
     validations:
       required: true
   - type: checkboxes
     id: latest
     attributes:
-      label: Version requirement/版本要求
+      label: Version requirement / バージョン要件
       options:
-        - label: I am using latest debug CI version of NPatch and enable verbose log/我正在使用最新 CI 调试版本且启用详细日志
+        - label: I am using the latest debug CI version of NPatch and enabled verbose log. / 最新の CI デバッグビルドを使用し、詳細ログを有効にしています
           required: true
   - type: textarea
     attributes:
-      label: Apk file/Apk 文件
-      description: The apk file if patching failed / 修复失败的 apk 文件（如有）
-      placeholder: Upload apks by clicking the bar on the bottom. /点击文本框底栏上传安装包文件。
+      label: Apk file / APK ファイル
+      description: The apk file if patching failed. / パッチに失敗した APK があれば添付してください。
+      placeholder: Upload apks by clicking the bar on the bottom. / 下部のバーをクリックして APK をアップロードできます。
   - type: textarea
     attributes:
-      label: Logs/日志
-      description: For usage issues, please provide the log zip saved from manager; for activation issues, please provide [bugreport](https://developer.android.com/studio/debug/bug-report). Without log, the issue will be closed. /使用问题请提供从管理器保存的日志压缩包；激活问题请提供 [bugreport](https://developer.android.google.cn/studio/debug/bug-report?hl=zh-cn) 日志。无日志提交会被关闭。
+      label: Logs / ログ
+      description: For usage issues, please provide the log zip saved from the manager; for activation issues, please provide a [bugreport](https://developer.android.com/studio/debug/bug-report). Without log, the issue will be closed. / 使用中の問題はマネージャーから保存したログの zip を、起動・有効化の問題は [bugreport](https://developer.android.com/studio/debug/bug-report) を添付してください。ログが無い場合は issue を閉じます。
       value: |
         <details>
         
         ```
-        # Replace this line with the log / 将此行用日志替换
+        # Replace this line with the log / この行をログで置き換えてください
         ```
         </details>
     validations:
