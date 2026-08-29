@@ -125,7 +125,7 @@ object SplitMerger {
      */
     private fun mergeOntoBase(bundle: ApkBundle, logger: Logger): ApkModule {
         val modules = bundle.apkModuleList
-        val base = bundle.baseModule ?: modules.first()
+        val base = bundle.baseModule ?: modules.largestTableModule() ?: modules.first()
         val manifestMerger = bundle.manifestMerger
         manifestMerger?.reset()
         manifestMerger?.initializeBase(base.androidManifest)
@@ -145,6 +145,10 @@ object SplitMerger {
         logger.d("Merged onto base module: ${base.moduleName}")
         return base
     }
+
+    private fun List<ApkModule>.largestTableModule(): ApkModule? = this
+        .filter { it.hasTableBlock() }
+        .maxByOrNull { it.tableBlock.headerBlock.chunkSize }
 
     /** Links [source] into the workspace to avoid copying a several-hundred-MB split set. */
     private fun linkOrCopy(source: File, destination: File) {
