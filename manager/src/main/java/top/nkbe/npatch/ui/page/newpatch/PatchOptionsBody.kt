@@ -2,12 +2,14 @@ package top.nkbe.npatch.ui.page.newpatch
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AutoFixHigh
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CloudSync
+import androidx.compose.material.icons.outlined.Numbers
 import androidx.compose.material.icons.outlined.Output
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -15,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import top.nkbe.npatch.R
@@ -180,6 +183,16 @@ fun PatchOptionsBody(modifier: Modifier) {
                     onCheckedChange = { viewModel.debuggable = it }
                 )
                 SwitchPreference(
+                    title = stringResource(R.string.patch_override_version_code),
+                    summary = stringResource(R.string.patch_override_version_code_desc),
+                    startAction = { Icon(Icons.Outlined.Numbers, null) },
+                    checked = viewModel.overrideVersionCode,
+                    onCheckedChange = { viewModel.overrideVersionCode = it }
+                )
+                if (viewModel.overrideVersionCode) {
+                    OverrideVersionCodeField()
+                }
+                SwitchPreference(
                     title = stringResource(R.string.patch_output_log_to_media),
                     summary = stringResource(R.string.patch_output_log_to_media_desc),
                     startAction = { Icon(Icons.Outlined.Output, null) },
@@ -228,4 +241,34 @@ private fun MicrogVendorPreference() {
                 .padding(horizontal = 12.dp),
         )
     }
+}
+
+/**
+ * versionCode の上書き値を入力させるフィールド。
+ * 数字以外を弾き、versionCode の上限 (Int.MAX_VALUE) を超える入力は上限値に丸める。
+ */
+@Composable
+private fun OverrideVersionCodeField() {
+    val viewModel = viewModel<NewPatchViewModel>()
+
+    TextField(
+        value = viewModel.overrideVersionCodeValue,
+        onValueChange = { input ->
+            val digits = input.filter { it.isDigit() }.trimStart('0')
+            viewModel.overrideVersionCodeValue = when {
+                digits.isEmpty() -> ""
+                (digits.toLongOrNull()
+                    ?: Long.MAX_VALUE) > NewPatchViewModel.MAX_VERSION_CODE ->
+                    NewPatchViewModel.MAX_VERSION_CODE.toString()
+
+                else -> digits
+            }
+        },
+        label = stringResource(R.string.patch_custom_version_code),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp),
+    )
 }

@@ -140,7 +140,7 @@
     <string name="patch_new_package">Patch New PackageName</string>
     <string name="hint_patch_new_package">Input a new package for app</string>
     <string name="patch_override_version_code">Override version code</string>
-    <string name="patch_override_version_code_desc">Override the patched app\'s version code with a custom value, defaulting to 1.\nThis allows downgrade installation in more cases, and generally does not affect the version code actually perceived by the application</string>
+    <string name="patch_override_version_code_desc">Override the patched app\'s version code with a custom value, defaulting to the maximum 2147483647.\nWhen the package name and signing certificate match the installed app and this value is greater than or equal to the installed app\'s version code, this may prevent the Play Store from offering updates and allow installation over the existing copy. Generally does not affect the version code actually perceived by the application</string>
     <string name="patch_custom_version_code">Custom version code</string>
     <string name="patch_inject_mt_provider">Inject Files Provider</string>
     <string name="patch_inject_mt_provider_desc">Inject file providers to manage files in the data directory without root privileges (From MT Manager)</string>
@@ -156,6 +156,27 @@
     <string name="patch_install_successfully">Install successfully</string>
     <string name="patch_install_failed">Install failed</string>
     <string name="patch_no_xposed_module">No Xposed module(s) were found</string>
+    <string name="patch_abort_title">Stop patching?</string>
+    <string name="patch_abort_message">Patching will be terminated. The APK being generated and all temporary files are deleted.</string>
+    <string name="patch_abort_confirm">Stop</string>
+    <string name="patch_cancelling">Stopping</string>
+    <string name="patch_cancelled">Patching was stopped</string>
+    <string name="patch_stage_preparing">Preparing…</string>
+    <string name="patch_stage_connecting">Connecting to proxy…</string>
+    <string name="patch_stage_downloading">Downloading APK…</string>
+    <string name="patch_stage_merging">Merging split APKs…</string>
+    <string name="patch_stage_parsing">Parsing APK…</string>
+    <string name="patch_stage_patching">Patching APK…</string>
+    <string name="patch_stage_config">Adding config…</string>
+    <string name="patch_stage_loader">Adding loader…</string>
+    <string name="patch_stage_native">Adding native libraries…</string>
+    <string name="patch_stage_modules">Embedding modules…</string>
+    <string name="patch_stage_metaloader">Adding metaloader…</string>
+    <string name="patch_stage_writing">Writing APK…</string>
+    <string name="patch_stage_exporting">Saving to storage…</string>
+    <string name="patch_notification_channel">Patching</string>
+    <string name="patch_notification_title">Patching</string>
+    <string name="patch_notification_text">Patching continues in the background</string>
 
     <!-- Select Apps Screen -->
     <string name="screen_select_apps">Select apps</string>
@@ -169,6 +190,8 @@
     <string name="welcome_permission_summary">Before getting started, grant basic access permissions to keep core features working.</string>
     <string name="welcome_permission_storage_title">Storage Access</string>
     <string name="welcome_permission_storage_summary">Used to select local APK files for patching and save output results to external storage.</string>
+    <string name="welcome_permission_notification_title">Notifications</string>
+    <string name="welcome_permission_notification_summary">Used to show progress while a patch keeps running in the background. Patching still works without it.</string>
     <string name="welcome_permission_applist_title">Read App List</string>
     <string name="welcome_permission_applist_summary">Used to read installed apps so you can choose patch targets accurately.</string>
     <string name="welcome_optional_title">Optional extension: Shizuku</string>

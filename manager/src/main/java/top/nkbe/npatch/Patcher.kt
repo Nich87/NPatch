@@ -3,16 +3,21 @@ package top.nkbe.npatch
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import top.nkbe.npatch.config.Configs
 import top.nkbe.npatch.config.KeystorePreset
 import top.nkbe.npatch.config.MyKeyStore
+import top.nkbe.npatch.network.proxy.ApkProxyService
 import top.nkbe.npatch.share.Constants
 import top.nkbe.npatch.share.PatchConfig
-import top.nkbe.npatch.patch.NPatch
 import top.nkbe.npatch.patch.util.Logger
+import top.nkbe.npatch.patcher.PatcherClient
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
 import java.util.zip.Deflater
@@ -30,7 +35,11 @@ object Patcher {
         internal val inputApks: List<File>
             get() = apkPaths.map { File(it).absoluteFile }
 
-        fun toStringArray(inputApks: List<File> = apkPaths.map { File(it).absoluteFile }): Array<String> {
+        fun toStringArray(inputApks: List<File> = apkPaths.map { File(it).absoluteFile }): Array<String> =
+            configArgs() + inputApks.map { it.absolutePath }
+
+        /** Patcher CLI arguments without the trailing input paths, which the merge may replace. */
+        fun configArgs(): Array<String> {
             return buildList {
                 add("-o"); add(lspApp.tmpApkDir.absolutePath)
                 add("-p"); add(config.newPackage)
@@ -53,38 +62,28 @@ object Patcher {
                     KeystorePreset.FPA -> add("-fpa")
                     KeystorePreset.CUSTOM -> addAll(arrayOf("-k", MyKeyStore.file.path, Configs.keyStorePassword, Configs.keyStoreAlias, Configs.keyStoreAliasPassword))
                 }
-                addAll(inputApks.map { it.absolutePath })
             }.toTypedArray()
         }
     }
 
     suspend fun patch(logger: Logger, options: Options) {
         withContext(Dispatchers.IO) {
-            var inputApks = options.inputApks
-            validateInputSet(inputApks)
-            // Split APK sets are merged into a single APK before patching, so the
-            // patcher produces one installable APK instead of an APKS archive.
-            if (inputApks.size > 1) {
-                logger.i("Merging ${inputApks.size} split APKs into a single APK...")
-                val mergedApk = lspApp.tmpApkDir.resolve("${options.newPackageName}.apk")
-                mergedApk.delete()
-                SplitMerger.mergeToSingleApk(inputApks, mergedApk, logger)
-                inputApks = listOf(mergedApk)
-            }
-            val outputsBeforePatch = currentPatchOutputs()
-            NPatch(logger, *options.toStringArray(inputApks)).doCommandLine()
+            // Merging and repackaging peak close to the heap ceiling, so they run in the
+            // :patcher process. An OutOfMemoryError there kills that process instead of the
+            // manager, and the binder death is reported as a patch failure.
+            val orderedOutputs = PatcherClient.runInPatcherProcess(logger, options)
+            currentCoroutineContext().ensureActive()
 
             val uri = Configs.storageDirectory?.toUri()
                 ?: throw IOException("Uri is null")
             val root = DocumentFile.fromTreeUri(lspApp, uri)
                 ?: throw IOException("DocumentFile is null")
-            val producedOutputs = currentPatchOutputs() - outputsBeforePatch
-            val orderedOutputs = matchOutputsToInputs(inputApks, producedOutputs)
             val installDir = createInstallSetDirectory()
             val apkFileList = orderedOutputs.map { tempApkFile ->
                 moveToInstallSet(tempApkFile, installDir.resolve(tempApkFile.name))
             }
 
+            logger.i("Exporting patched apk...")
             try {
                 if (apkFileList.size == 1) {
                     val patchedApkFile = apkFileList.first()
@@ -118,56 +117,25 @@ object Patcher {
         }
     }
 
-    private fun validateInputSet(inputApks: List<File>) {
-        if (inputApks.isEmpty()) throw IOException("No input APK files")
-        val missing = inputApks.filterNot(File::isFile)
-        if (missing.isNotEmpty()) {
-            throw IOException("Input APK does not exist: ${missing.joinToString { it.path }}")
-        }
-        val duplicateNames = inputApks
-            .groupBy { it.nameWithoutExtension.lowercase() }
-            .filterValues { it.size > 1 }
-            .keys
-        if (duplicateNames.isNotEmpty()) {
-            throw IOException("Input APK names are ambiguous: ${duplicateNames.joinToString()}")
-        }
-    }
+    private val installSetRoot: File
+        get() = (lspApp.externalCacheDir ?: lspApp.cacheDir).resolve("npatch-install")
 
-    private fun currentPatchOutputs(): Set<File> = lspApp.tmpApkDir
-        .listFiles()
-        .orEmpty()
-        .filter { it.isFile && it.name.endsWith(Constants.PATCH_FILE_SUFFIX) }
-        .map { it.absoluteFile }
-        .toSet()
-
-    private fun matchOutputsToInputs(inputApks: List<File>, producedOutputs: Set<File>): List<File> {
-        if (producedOutputs.size != inputApks.size) {
-            throw IOException(
-                "Patched APK count mismatch: expected ${inputApks.size}, got ${producedOutputs.size}",
-            )
-        }
-        val unmatched = producedOutputs.toMutableSet()
-        return inputApks.map { input ->
-            val outputPattern = Regex(
-                "^${Regex.escape(input.nameWithoutExtension)}-[0-9]+" +
-                    "${Regex.escape(Constants.PATCH_FILE_SUFFIX)}$",
-                RegexOption.IGNORE_CASE,
-            )
-            val matches = unmatched.filter { outputPattern.matches(it.name) }
-            if (matches.size != 1) {
-                throw IOException("Cannot match patched output for ${input.name}")
-            }
-            matches.single().also(unmatched::remove)
-        }.also {
-            if (unmatched.isNotEmpty()) {
-                throw IOException("Unexpected patched outputs: ${unmatched.joinToString { file -> file.name }}")
+    /** 中断で残った一時 APK と生成物を消し、[preservedApkFiles] のインストールセットへ戻す。 */
+    suspend fun discardArtifacts(preservedApkFiles: List<File>?) {
+        withContext(Dispatchers.IO + NonCancellable) {
+            lspApp.tmpApkDir.listFiles()?.forEach { it.deleteRecursively() }
+            ApkProxyService.deletePartialDownloads(lspApp)
+            val preserved = preservedApkFiles?.takeIf { it.isNotEmpty() && it.all(File::isFile) }
+            lspApp.targetApkFiles = preserved?.let { ArrayList(it) }
+            val preservedDirs = preserved.orEmpty().mapNotNull { it.parentFile?.absoluteFile }.toSet()
+            installSetRoot.listFiles()?.forEach { directory ->
+                if (directory.absoluteFile !in preservedDirs) directory.deleteRecursively()
             }
         }
     }
 
     private fun createInstallSetDirectory(): File {
-        val cacheRoot = lspApp.externalCacheDir ?: lspApp.cacheDir
-        val installRoot = cacheRoot.resolve("npatch-install")
+        val installRoot = installSetRoot
         if (!installRoot.exists() && !installRoot.mkdirs()) {
             throw IOException("Unable to create install cache: $installRoot")
         }
@@ -202,7 +170,7 @@ object Patcher {
             }
     }
 
-    private fun exportFile(
+    private suspend fun exportFile(
         root: DocumentFile,
         source: File,
         mimeType: String,
@@ -213,7 +181,7 @@ object Patcher {
             ?: throw IOException("Unable to create output file: $outputName")
         try {
             lspApp.contentResolver.openOutputStream(destination.uri, "w")?.use { output ->
-                source.inputStream().use { input -> input.copyTo(output) }
+                source.inputStream().use { input -> input.copyToCancellable(output) }
             } ?: throw IOException("Unable to open an output stream: ${destination.uri}")
         } catch (error: Throwable) {
             destination.delete()
@@ -225,7 +193,7 @@ object Patcher {
         return packageName.replace(Regex("[\\\\/:*?\"<>|]"), "_") + Constants.PATCH_ARCHIVE_SUFFIX
     }
 
-    private fun createApksArchive(output: OutputStream, apkFiles: List<File>) {
+    private suspend fun createApksArchive(output: OutputStream, apkFiles: List<File>) {
         require(apkFiles.isNotEmpty()) { "APK set is empty" }
         val duplicateNames = apkFiles.groupBy { it.name.lowercase() }.filterValues { it.size > 1 }
         require(duplicateNames.isEmpty()) { "Duplicate APKS entries: ${duplicateNames.keys}" }
@@ -235,10 +203,20 @@ object Patcher {
                 val entry = ZipEntry(apkFile.name).apply { time = 0L }
                 zip.putNextEntry(entry)
                 apkFile.inputStream().use { input ->
-                    input.copyTo(zip)
+                    input.copyToCancellable(zip)
                 }
                 zip.closeEntry()
             }
+        }
+    }
+
+    private suspend fun InputStream.copyToCancellable(output: OutputStream) {
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        while (true) {
+            currentCoroutineContext().ensureActive()
+            val read = read(buffer)
+            if (read < 0) break
+            output.write(buffer, 0, read)
         }
     }
 }

@@ -1,11 +1,14 @@
 package top.nkbe.npatch.ui.page.newpatch
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -31,6 +34,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
@@ -77,6 +81,21 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
         }
     }
 
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) {}
+    LaunchedEffect(Unit) {
+        val required = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        if (required) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    val running = viewModel.patchState == PatchState.PATCHING ||
+        viewModel.patchState == PatchState.CANCELLING
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -84,7 +103,7 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
     ) {
         // ── 状態表示（完了 / 失敗）──
         AnimatedVisibility(
-            visible = viewModel.patchState != PatchState.PATCHING,
+            visible = !running,
             enter = fadeIn(),
             exit = fadeOut()
         ) {
@@ -128,7 +147,7 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
 
         // ── 進捗表示（パッチ中）──
         AnimatedVisibility(
-            visible = viewModel.patchState == PatchState.PATCHING,
+            visible = running,
             enter = fadeIn(),
             exit = fadeOut()
         ) {
@@ -147,7 +166,12 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                     CircularProgressIndicator(size = 28.dp)
                     Column {
                         Text(
-                            text = stringResource(R.string.patch_start) + "…",
+                            text = when {
+                                viewModel.patchState == PatchState.CANCELLING ->
+                                    stringResource(R.string.patch_cancelling) + "…"
+                                viewModel.currentStage.isNotEmpty() -> viewModel.currentStage
+                                else -> stringResource(R.string.patch_start) + "…"
+                            },
                             style = COUITheme.textStyles.headline1,
                         )
                         Text(
@@ -167,6 +191,7 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                 .fillMaxWidth()
                 .weight(1f)
                 .padding(bottom = 12.dp)
+                .clip(RoundedCornerShape(20.dp))
                 .combinedClickable(
                     onClick = {},
                     onLongClick = {
@@ -179,15 +204,13 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                     }
                 ),
         ) {
-            ShimmerAnimation(enabled = viewModel.patchState == PatchState.PATCHING) {
+            ShimmerAnimation(modifier = Modifier.fillMaxSize(), enabled = running) {
                 ProvideTextStyle(COUITheme.textStyles.footnote1.copy(fontFamily = FontFamily.Monospace)) {
                     val scrollState = rememberLazyListState()
                     LazyColumn(
                         state = scrollState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(16.dp))
-                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
                         overscrollEffect = null
                     ) {
                         items(viewModel.logs) {

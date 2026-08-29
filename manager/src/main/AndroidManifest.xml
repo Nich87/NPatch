@@ -17,6 +17,9 @@
     <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES"/>
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".LSPApplication"
@@ -35,6 +38,12 @@
         <meta-data
             android:name="app_description_content"
             android:resource="@string/miui_uninstall_content" />
+
+        <!-- パッチ処理は専用プロセスで動かす -->
+        <service
+            android:name=".patcher.PatcherService"
+            android:exported="false"
+            android:process=":patcher" />
 
         <activity
             android:name=".ui.activity.MainActivity"
@@ -69,6 +78,11 @@
             android:name=".manager.ModuleService"
             android:exported="true"
             tools:ignore="ExportedService" />
+
+        <service
+            android:name=".service.PatchForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
 
         <provider

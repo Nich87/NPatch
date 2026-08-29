@@ -12,6 +12,9 @@ import com.android.tools.build.apkzlib.zip.AlignmentRules;
 import com.android.tools.build.apkzlib.zip.NestedZip;
 import com.android.tools.build.apkzlib.zip.StoredEntry;
 import com.android.tools.build.apkzlib.zip.ZFile;
+import com.android.tools.build.apkzlib.bytestorage.ChunkBasedByteStorageFactory;
+import com.android.tools.build.apkzlib.bytestorage.OverflowToDiskByteStorageFactory;
+import com.android.tools.build.apkzlib.bytestorage.TemporaryDirectory;
 import com.android.tools.build.apkzlib.zip.ZFileOptions;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
@@ -138,7 +141,7 @@ public class NPatch {
     @Parameter(names = {"-r", "--allowdown"}, description = "Allow downgrade installation by overriding versionCode to 1 (In most cases, the app can still get the correct versionCode)")
     private boolean overrideVersionCode = false;
 
-    @Parameter(names = {"--versioncode"}, description = "Custom versionCode used when --allowdown is enabled. default 1")
+    @Parameter(names = {"--versioncode"}, description = "Custom versionCode used when --allowdown is enabled, between 1 and 2147483647. default 1")
     private int overrideVersionCodeValue = 1;
 
     @Parameter(names = {"-v", "--verbose"}, description = "Verbose output")
@@ -166,11 +169,23 @@ public class NPatch {
 
     private static final ZFileOptions Z_FILE_OPTIONS = new ZFileOptions()
             .setNoTimestamps(true)
+            .setStorageFactory(new ChunkBasedByteStorageFactory(
+                    new OverflowToDiskByteStorageFactory(
+                            zipMemoryCacheBytes(),
+                            TemporaryDirectory::newSystemTemporaryDirectory)))
             .setAlignmentRule(AlignmentRules.compose(
                     AlignmentRules.constantForSuffix(".so", 16384),
                     AlignmentRules.constantForSuffix(ORIGINAL_APK_ASSET_PATH, 4096),
                     AlignmentRules.constantForSuffix(".arsc", 4)
             ));
+
+    /** Heap apkzlib may hold before spilling to disk. Its 50MB default is desktop-sized. */
+    private static long zipMemoryCacheBytes() {
+        long maxHeap = Runtime.getRuntime().maxMemory();
+        long ceiling = 50L * 1024 * 1024;
+        if (maxHeap == Long.MAX_VALUE) return ceiling;
+        return Math.max(4L * 1024 * 1024, Math.min(ceiling, maxHeap / 16));
+    }
 
     private final JCommander jCommander;
     private final Logger logger;
@@ -202,6 +217,10 @@ public class NPatch {
         if (sigbypassLevel < Constants.SIGBYPASS_NONE ||
                 sigbypassLevel > Constants.SIGBYPASS_EXTREME) {
             logger.e("Signature bypass level must be between 0 and 3\n");
+            help = true;
+        }
+        if (overrideVersionCode && overrideVersionCodeValue < 1) {
+            logger.e("Custom versionCode must be between 1 and " + Integer.MAX_VALUE + "\n");
             help = true;
         }
         if (!"sha1".equals(microgSignatureHash) && !"sha256".equals(microgSignatureHash)) {

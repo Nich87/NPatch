@@ -25,6 +25,7 @@ LINE_v26.10.1-1-npatched.apk
 
 # AIツールのローカルメタデータはコミットしない
 .serena/
+.claude/
 
 # リリース署名用キーストア（GitHub シークレットで管理）はコミットしない
 key.jks

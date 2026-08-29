@@ -37,6 +37,7 @@ import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.runtime.Composable
@@ -66,6 +67,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.launch
 import nkbe.util.ShizukuApi
 import top.nkbe.npatch.BuildConfig
@@ -100,6 +102,8 @@ fun WelcomeScreen(
     val pagerState = rememberPagerState(pageCount = { 3 })
     var storageGranted by remember { mutableStateOf(context.hasStorageAccess()) }
     var appListGranted by remember { mutableStateOf(context.hasAppListAccessDeclaration()) }
+    var notificationGranted by remember { mutableStateOf(context.hasNotificationAccess()) }
+    var notificationRequested by remember { mutableStateOf(false) }
 
     val legacyStorageLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -111,6 +115,12 @@ fun WelcomeScreen(
     ) {
         storageGranted = context.hasStorageAccess()
         appListGranted = context.hasAppListAccessDeclaration()
+        notificationGranted = context.hasNotificationAccess()
+    }
+    val notificationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        notificationGranted = context.hasNotificationAccess()
     }
 
     fun requestStorageAccess() {
@@ -129,6 +139,19 @@ fun WelcomeScreen(
                     Manifest.permission.READ_EXTERNAL_STORAGE,
                     Manifest.permission.WRITE_EXTERNAL_STORAGE
                 )
+            )
+        }
+    }
+
+    fun requestNotificationAccess() {
+        val canRequest = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !notificationRequested
+        if (canRequest) {
+            notificationRequested = true
+            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            settingsLauncher.launch(
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
             )
         }
     }
@@ -177,8 +200,10 @@ fun WelcomeScreen(
                 0 -> WelcomeIntroPage()
                 1 -> WelcomePermissionPage(
                     storageGranted = storageGranted,
+                    notificationGranted = notificationGranted,
                     appListGranted = appListGranted,
                     onStorageClick = ::requestStorageAccess,
+                    onNotificationClick = ::requestNotificationAccess,
                     onAppListClick = {
                         settingsLauncher.launch(
                             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -269,8 +294,10 @@ private fun WelcomeIntroPage() {
 @Composable
 private fun WelcomePermissionPage(
     storageGranted: Boolean,
+    notificationGranted: Boolean,
     appListGranted: Boolean,
     onStorageClick: () -> Unit,
+    onNotificationClick: () -> Unit,
     onAppListClick: () -> Unit,
 ) {
     WelcomePageContainer {
@@ -286,6 +313,14 @@ private fun WelcomePermissionPage(
             summary = stringResource(R.string.welcome_permission_storage_summary),
             granted = storageGranted,
             onClick = onStorageClick
+        )
+        Spacer(Modifier.height(12.dp))
+        PermissionStatusCard(
+            icon = Icons.Outlined.Notifications,
+            title = stringResource(R.string.welcome_permission_notification_title),
+            summary = stringResource(R.string.welcome_permission_notification_summary),
+            granted = notificationGranted,
+            onClick = onNotificationClick
         )
         Spacer(Modifier.height(12.dp))
         PermissionStatusCard(
@@ -581,6 +616,10 @@ private fun Context.hasStorageAccess(): Boolean {
         checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED &&
             checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
     }
+}
+
+private fun Context.hasNotificationAccess(): Boolean {
+    return NotificationManagerCompat.from(this).areNotificationsEnabled()
 }
 
 private fun Context.hasAppListAccessDeclaration(): Boolean {
