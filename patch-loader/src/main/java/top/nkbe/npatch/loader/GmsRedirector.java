@@ -89,8 +89,13 @@ public class GmsRedirector {
         return null;
     }
 
+    // microG serves no Dynamite module, so redirecting chimera only made the
+    // provider disagree with the caller's Uri. Left alone, real GMS answers it.
+    private static final String CHIMERA_AUTHORITY = REAL_GMS + ".chimera";
+
     private static String redirectAuthority(String authority) {
         if (authority == null) return null;
+        if (CHIMERA_AUTHORITY.equals(authority)) return null;
         if (authority.startsWith(REAL_GMS + ".")) {
             return targetGms + authority.substring(REAL_GMS.length());
         }
