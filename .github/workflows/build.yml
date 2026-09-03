@@ -24,6 +24,8 @@ jobs:
       CCACHE_NOHASHDIR: 'true'
       CCACHE_HARDLINK: 'true'
       CCACHE_BASEDIR: '${{ github.workspace }}'
+      CCACHE_DIR: '${{ github.workspace }}/.ccache'
+      CCACHE_MAXSIZE: '2G'
 
     steps:
     - name: コードのチェックアウト
@@ -33,10 +35,15 @@ jobs:
         submodules: 'recursive'
         fetch-depth: 0
 
+    - name: ccache のインストール
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ccache
+
     - name: キャッシュの設定
       uses: actions/cache@v4
       with:
-        path: ~/.ccache
+        path: ${{ github.workspace }}/.ccache
         key: ${{ runner.os }}-ccache-${{ github.sha }}
         restore-keys: |
           ${{ runner.os }}-ccache-
@@ -87,6 +94,10 @@ jobs:
     - name: Gradle でビルド
       run: ./gradlew buildAll
 
+    - name: ccache の統計
+      if: always()
+      run: ccache --show-stats
+
     - name: Release アーティファクトのアップロード
       uses: actions/upload-artifact@v5
       with:
@@ -121,7 +132,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          out/release/*
-          out/debug/*
+          out/release/*.apk
+          out/debug/*.apk
         generate_release_notes: true
         fail_on_unmatched_files: false
