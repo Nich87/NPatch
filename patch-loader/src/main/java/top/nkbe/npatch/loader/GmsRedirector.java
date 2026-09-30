@@ -1,5 +1,6 @@
 package top.nkbe.npatch.loader;
 
+import android.accounts.AccountManager;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -65,6 +66,8 @@ public class GmsRedirector {
         hookIntentGetAction();
         hookIntentSetComponent();
         hookIntentResolve();
+        hookIntentPutAccountTypes();
+        hookAccountManagerGetAccountsByType();
         hookContentResolverAcquire();
         hookPackageManagerGetPackageInfo(context);
 
@@ -216,6 +219,48 @@ public class GmsRedirector {
             Log.d(TAG, "Routing CHOOSE_ACCOUNT directly to the system account picker");
             intent.setComponent(SYSTEM_ACCOUNT_PICKER);
             intent.setPackage(null);
+        }
+    }
+
+    // The Google accounts microG can issue tokens for live under its own account type.
+    private static String remapAccountType(String type) {
+        return vendorBase != null && "com.google".equals(type) ? vendorBase : type;
+    }
+
+    private static void hookIntentPutAccountTypes() {
+        try {
+            XposedHelpers.findAndHookMethod(Intent.class, "putExtra", String.class, String[].class,
+                    new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            if (!"allowableAccountTypes".equals(param.args[0]) || param.args[1] == null
+                                    || !isChooseAccountAction(((Intent) param.thisObject).getAction())) {
+                                return;
+                            }
+                            String[] types = ((String[]) param.args[1]).clone();
+                            for (int i = 0; i < types.length; i++) {
+                                types[i] = remapAccountType(types[i]);
+                            }
+                            Log.d(TAG, "Remapping CHOOSE_ACCOUNT account types to " + String.join(",", types));
+                            param.args[1] = types;
+                        }
+                    });
+        } catch (Throwable t) {
+            Log.e(TAG, "Failed to hook Intent.putExtra for account types", t);
+        }
+    }
+
+    private static void hookAccountManagerGetAccountsByType() {
+        try {
+            XposedHelpers.findAndHookMethod(AccountManager.class, "getAccountsByType", String.class,
+                    new XC_MethodHook() {
+                        @Override
+                        protected void beforeHookedMethod(MethodHookParam param) {
+                            param.args[0] = remapAccountType((String) param.args[0]);
+                        }
+                    });
+        } catch (Throwable t) {
+            Log.e(TAG, "Failed to hook AccountManager.getAccountsByType", t);
         }
     }
 

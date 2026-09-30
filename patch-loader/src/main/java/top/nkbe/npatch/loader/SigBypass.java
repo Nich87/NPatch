@@ -463,21 +463,24 @@ public class SigBypass {
                                                    String... fieldNames) {
         for (String fieldName : fieldNames) {
             try {
-                Signature[] signatures = (Signature[]) XposedHelpers.getObjectField(signingDetails, fieldName);
-                if (signatures != null && signatures.length > 0) {
-                    replaceSignatureArray(signatures, replacements);
-                    return;
+                Signature[] existing = (Signature[]) XposedHelpers.getObjectField(signingDetails, fieldName);
+                if (existing == null || existing.length == 0) continue;
+                try {
+                    XposedHelpers.setObjectField(signingDetails, fieldName, cloneSignatures(replacements));
+                } catch (Throwable e) {
+                    replaceSignatureArray(existing, replacements);
                 }
+                return;
             } catch (Throwable ignored) {
             }
         }
     }
 
     private static void replaceSignatureArray(Signature[] target, Signature[] replacements) {
-        if (target == null || replacements == null) return;
-        int count = Math.min(target.length, replacements.length);
-        for (int i = 0; i < count; i++) {
-            target[i] = replacements[i] == null ? null : new Signature(replacements[i].toByteArray());
+        if (target == null || target.length == 0 || replacements == null || replacements.length == 0) return;
+        for (int i = 0; i < target.length; i++) {
+            Signature replacement = replacements[Math.min(i, replacements.length - 1)];
+            target[i] = replacement == null ? null : new Signature(replacement.toByteArray());
         }
     }
 
