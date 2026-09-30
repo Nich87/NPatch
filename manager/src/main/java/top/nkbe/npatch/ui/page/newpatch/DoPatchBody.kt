@@ -258,9 +258,9 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                 }
 
                 val onFinish: (Int, String?) -> Unit = { status, message ->
+                    installation = null
                     scope.launch {
                         if (status == PackageInstaller.STATUS_SUCCESS) {
-                            installation = null
                             viewModel.reset()
                             navigator.pop()
                             Toast.makeText(
@@ -268,15 +268,14 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                                 context.getString(R.string.patch_install_successfully),
                                 Toast.LENGTH_SHORT,
                             ).show()
-                        } else if (status != NeoPackageManager.STATUS_USER_CANCELLED) {
+                        } else if (status != NeoPackageManager.STATUS_USER_CANCELLED &&
+                            status != PackageInstaller.STATUS_FAILURE_ABORTED
+                        ) {
                             val result = snackbarHost.showSnackbar(installFailed, copyError)
                             if (result == SnackbarResult.ActionPerformed) {
                                 val cm = lspApp.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                                 cm.setPrimaryClip(ClipData.newPlainText("NPatch", message))
                             }
-                        }
-                        if (installation != null) {
-                            installation = null
                         }
                     }
                 }

@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import dev.rikka.tools.refine.Refine
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
@@ -28,6 +29,8 @@ import me.zhanghai.android.appiconloader.AppIconLoader
 import top.nkbe.npatch.config.ConfigManager
 import top.nkbe.npatch.config.Configs
 import top.nkbe.npatch.install.ApkInstallSet
+import top.nkbe.npatch.install.SystemInstallResult
+import top.nkbe.npatch.install.SystemPackageInstaller
 import top.nkbe.npatch.lspApp
 import top.nkbe.npatch.share.Constants
 import java.io.File
@@ -224,7 +227,15 @@ object NeoPackageManager {
      */
     suspend fun installApkFile(file: File, method: InstallMethod): InstallOutcome {
         Log.i(TAG, "Perform install apk file ${file.name} via $method")
-        return commitSession(method) {
+        val installSet = withContext(Dispatchers.IO) {
+            runCatching { ApkInstallSet.fromFiles(lspApp, listOf(file)) }
+        }.getOrElse { error ->
+            return InstallOutcome.Completed(
+                PackageInstaller.STATUS_FAILURE,
+                error.message + "\n" + error.stackTraceToString(),
+            )
+        }
+        return commitSession(method, installSet) {
             Log.d(TAG, "Add ${file.name}")
             file.inputStream().use { input ->
                 openWrite(file.name, 0, input.available().toLong()).use { output ->
@@ -246,8 +257,19 @@ object NeoPackageManager {
     ): InstallOutcome {
         var status = PackageInstaller.STATUS_FAILURE
         var message: String? = null
+        var permissionRequired = false
         withContext(Dispatchers.IO) {
             runCatching {
+                if (method == InstallMethod.SYSTEM) {
+                    when (val result = SystemPackageInstaller.install(lspApp, requireNotNull(installSet))) {
+                        is SystemInstallResult.Completed -> {
+                            status = result.status
+                            message = result.message
+                        }
+                        SystemInstallResult.PermissionRequired -> permissionRequired = true
+                    }
+                    return@runCatching
+                }
                 val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
                     installSet?.let {
                         setAppPackageName(it.packageName)
@@ -257,12 +279,7 @@ object NeoPackageManager {
                 var flags = Refine.unsafeCast<SessionParamsHidden>(params).installFlags
                 flags = flags or PackageManagerHidden.INSTALL_ALLOW_TEST or PackageManagerHidden.INSTALL_REPLACE_EXISTING
                 Refine.unsafeCast<SessionParamsHidden>(params).installFlags = flags
-                val session = when (method) {
-                    InstallMethod.SHIZUKU -> ShizukuApi.createPackageInstallerSession(params)
-                    InstallMethod.SYSTEM -> lspApp.packageManager.packageInstaller.openSession(
-                        lspApp.packageManager.packageInstaller.createSession(params)
-                    )
-                }
+                val session = ShizukuApi.createPackageInstallerSession(params)
                 session.use {
                     writeEntries(session)
                     val channel = kotlinx.coroutines.channels.Channel<Intent>(kotlinx.coroutines.channels.Channel.UNLIMITED)
@@ -292,11 +309,13 @@ object NeoPackageManager {
                     channel.close()
                 }
             }.onFailure {
+                if (it is CancellationException) throw it
                 status = PackageInstaller.STATUS_FAILURE
                 message = it.message + "\n" + it.stackTraceToString()
             }
         }
-        return InstallOutcome.Completed(status, message)
+        return if (permissionRequired) InstallOutcome.PermissionRequired
+        else InstallOutcome.Completed(status, message)
     }
 
     suspend fun uninstall(packageName: String): Pair<Int, String?> {
