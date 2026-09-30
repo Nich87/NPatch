@@ -74,6 +74,12 @@ jobs:
 
     - name: Android SDK の設定
       uses: android-actions/setup-android@v3
+      with:
+        packages: >-
+          platform-tools
+          platforms;android-37
+          build-tools;37.0.0
+          ndk;29.0.13599879
 
     - name: ninja の設定
       uses: seanmiddleditch/gha-setup-ninja@master
