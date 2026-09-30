@@ -7,6 +7,7 @@ readonly MAVEN_BASE="https://repo.maven.apache.org/maven2/io/github/libxposed"
 declare -Ar SOURCE_SHA256=(
     [api]="c4a5761c2409f411ca0f67983a687fbd9dd9a76250d7a68ab7cb2950c820444e"
     [service]="74cd4c36acc4f0251a80a2fc19eddca7f0e330d99a5d4b1c6a07b6136f3459c6"
+    [interface]="003e496cd493e2cd888e05e9596664e716e1b2fcf61ac39887d59113f425dcb5"
 )
 
 git submodule update --init core
@@ -46,3 +47,7 @@ download_sources() {
 
 download_sources api "core/xposed/libxposed/api/src/main/java"
 download_sources service "core/services/libxposed/service/src/main/java"
+
+if ! find core/services/libxposed/interface/src/main/aidl -type f -name '*.aidl' -print -quit 2>/dev/null | grep -q .; then
+    download_sources interface "core/services/libxposed/service/src/main/java"
+fi
