@@ -2,12 +2,10 @@ package top.nkbe.npatch.ui.util
 
 import android.app.DownloadManager
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.util.Log
 import android.widget.Toast
-import androidx.core.content.FileProvider
 import androidx.core.content.getSystemService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -96,33 +94,31 @@ class KnotDownloader(private val context: Context) {
         }
 
         if (success) {
-            // Main スレッドから startActivity を呼ぶ (背景起動制限を回避)
             return withContext(Dispatchers.Main) {
-                if (ShizukuApi.isReady) {
-                    // Shizuku 有効時はシステムのインストール確認を出さずにサイレントインストールする
-                    installViaShizuku(fileName)
-                } else {
-                    openApk(fileName)
-                    true
-                }
+                installDownloadedApk(fileName)
             }
         }
         return false
     }
 
     /**
-     * Shizuku 経由でダウンロード済み APK をサイレントインストールする。
+     * ダウンロード済み APK を Shizuku またはシステムのインストーラーでインストールする。
      *
      * @return インストールが成功したかどうか
      */
-    private suspend fun installViaShizuku(fileName: String): Boolean {
+    private suspend fun installDownloadedApk(fileName: String): Boolean {
         val file = downloadFile(fileName)
         if (!file.exists()) {
             Log.w(TAG, "Downloaded file not found: ${file.absolutePath}")
             return false
         }
-        val outcome = NeoPackageManager.installApkFile(file, NeoPackageManager.InstallMethod.SHIZUKU)
-        Log.i(TAG, "Shizuku install result: $outcome")
+        val method = if (ShizukuApi.isReady) NeoPackageManager.InstallMethod.SHIZUKU
+            else NeoPackageManager.InstallMethod.SYSTEM
+        val outcome = NeoPackageManager.installApkFile(file, method)
+        Log.i(TAG, "$method install result: $outcome")
+        if (outcome is NeoPackageManager.InstallOutcome.Completed &&
+            outcome.status == PackageInstaller.STATUS_FAILURE_ABORTED
+        ) return false
         val (success, message) = when (outcome) {
             is NeoPackageManager.InstallOutcome.Completed ->
                 (outcome.status == PackageInstaller.STATUS_SUCCESS) to
@@ -136,30 +132,6 @@ class KnotDownloader(private val context: Context) {
         }
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         return success
-    }
-
-    private fun openApk(fileName: String) {
-        val file = downloadFile(fileName)
-        if (!file.exists()) {
-            Log.w(TAG, "Downloaded file not found: ${file.absolutePath}")
-            return
-        }
-        try {
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file,
-            )
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            context.startActivity(intent)
-            Log.i(TAG, "Opened APK installer: $fileName")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to open APK installer", e)
-        }
     }
 
     private fun downloadFile(fileName: String): File {
