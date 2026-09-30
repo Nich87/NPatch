@@ -18,6 +18,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.suqi8.coui.kmp.basic.ButtonDefaults
 import io.github.suqi8.coui.kmp.basic.COUIScrollBehavior
 import io.github.suqi8.coui.kmp.basic.CircularProgressIndicator
+import io.github.suqi8.coui.kmp.basic.SnackbarHost
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.basic.TextButton
 import io.github.suqi8.coui.kmp.overlay.OverlayDialog
@@ -162,6 +163,7 @@ fun NewPatchScreen(
     }
 
     NPatchScaffold(
+        snackbarHost = { SnackbarHost(snackbarHost) },
         topBar = {
             when (viewModel.patchState) {
                 PatchState.CONFIGURING -> ConfiguringTopBar(scrollBehavior) {
