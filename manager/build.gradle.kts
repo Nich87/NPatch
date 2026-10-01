@@ -49,6 +49,7 @@ kotlin {
 android {
     defaultConfig {
         applicationId = defaultManagerPackageName
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         val managerSignatureAllowlist = (
             System.getenv("NPATCH_MANAGER_SIGNATURE_SHA256")
                 ?: project.findProperty("npatchManagerSignatureSha256")?.toString()
@@ -142,6 +143,16 @@ androidComponents {
 }
 
 dependencies {
+    implementation("com.android.tools.build:apksig:8.0.2")
+    implementation("androidx.work:work-runtime-ktx:2.11.0")
+    implementation("io.noties.markwon:core:4.6.2")
+    implementation("io.noties.markwon:ext-strikethrough:4.6.2")
+    implementation("io.noties.markwon:ext-tables:4.6.2")
+    implementation("io.noties.markwon:ext-tasklist:4.6.2")
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation(platform(npatch.androidx.compose.bom))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
     implementation(projects.patch)
     implementation(projects.share.android)
     implementation(projects.share.java)

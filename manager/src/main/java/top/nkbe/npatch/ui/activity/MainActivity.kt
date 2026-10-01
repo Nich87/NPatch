@@ -1,6 +1,9 @@
 package top.nkbe.npatch.ui.activity
 
 import android.content.Context
+import android.content.Intent
+import top.nkbe.npatch.update.AppUpdater
+import top.nkbe.npatch.update.UpdateNotifications
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -39,6 +42,7 @@ import top.nkbe.npatch.config.ThemeSettings
 import top.nkbe.npatch.config.DEFAULT_CARD_BACKGROUND_ALPHA_PERCENT
 import top.nkbe.npatch.config.DEFAULT_CUSTOM_COLOR
 import top.nkbe.npatch.ui.page.LocalNavigator
+import top.nkbe.npatch.ui.component.AppUpdateDialog
 import top.nkbe.npatch.ui.page.MainScreen
 import top.nkbe.npatch.ui.page.MainTab
 import top.nkbe.npatch.ui.page.Navigator
@@ -56,6 +60,24 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 
 class MainActivity : ComponentActivity() {
 
+    override fun onStart() {
+        super.onStart()
+        if (Configs.welcomeSeen) AppUpdater.check(automatic = true)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleUpdateIntent(intent)
+    }
+
+    private fun handleUpdateIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(UpdateNotifications.OPEN_UPDATE, false) == true) {
+            AppUpdater.openDetails()
+            intent.removeExtra(UpdateNotifications.OPEN_UPDATE)
+        }
+    }
+
     override fun attachBaseContext(newBase: Context) {
         val prefs = newBase.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val language = LSPApplication.normalizeLanguageTag(prefs.getString("language", "") ?: "")
@@ -64,6 +86,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleUpdateIntent(intent)
 
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.auto(
@@ -200,6 +223,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+                        AppUpdateDialog(automaticChecksEnabled = backStack.any { it is Route.Main })
                     }
                 }
             }

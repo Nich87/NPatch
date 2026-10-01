@@ -57,6 +57,7 @@ import top.nkbe.npatch.database.entity.Module
 import top.nkbe.npatch.network.proxy.ApkProxyService
 import top.nkbe.npatch.ui.activity.MainActivity
 import top.nkbe.npatch.ui.component.NPatchScaffold
+import top.nkbe.npatch.ui.component.AppUpdatePreferences
 import top.nkbe.npatch.ui.util.LocalSnackbarHost
 import top.nkbe.npatch.util.LINE_PACKAGE_NAME
 import top.nkbe.npatch.util.formatLineVersionName
@@ -123,6 +124,7 @@ fun SettingsScreen() {
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
 
             SmallTitle(text = stringResource(R.string.settings_other_settings))
+            AppUpdatePreferences()
             ProxyVersionSettings()
             ProxyCachePreference()
             LanguagePreference()
