@@ -175,6 +175,7 @@
     <string name="app_update_automatic">アップデートを自動確認</string>
     <string name="app_update_automatic_summary">アプリを開くたびに NPatch の更新を確認します</string>
     <string name="app_update_check">アップデートを確認</string>
+    <string name="app_update_available_summary">NPatch %1$sへ更新できます</string>
     <string name="app_update_checking">更新を確認中…</string>
     <string name="app_update_installed">現在のバージョン：%1$s</string>
     <string name="app_update_available">NPatch %1$s に更新できます</string>

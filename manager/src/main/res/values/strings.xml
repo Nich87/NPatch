@@ -403,6 +403,7 @@
     <string name="app_update_automatic">Automatically check for updates</string>
     <string name="app_update_automatic_summary">Check for a new NPatch release whenever you open the app</string>
     <string name="app_update_check">Check for updates</string>
+    <string name="app_update_available_summary">Update to NPatch %1$s</string>
     <string name="app_update_checking">Checking for updates…</string>
     <string name="app_update_installed">Installed version: %1$s</string>
     <string name="app_update_available">NPatch %1$s is available</string>

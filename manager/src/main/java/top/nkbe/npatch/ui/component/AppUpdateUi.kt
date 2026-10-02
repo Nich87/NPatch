@@ -59,7 +59,6 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 import top.nkbe.npatch.BuildConfig
 import top.nkbe.npatch.R
 import top.nkbe.npatch.update.UpdateState
-import top.nkbe.npatch.update.UpdateRelease
 import top.nkbe.npatch.update.AppUpdater
 import top.nkbe.npatch.update.UpdateNotifications
 
@@ -107,23 +106,21 @@ fun AppUpdatePreferences() {
             onClick = { context.startActivity(UpdateNotifications.settingsIntent(context)) },
         )
     }
-    ArrowPreference(
-        title = stringResource(R.string.app_update_check),
-        summary = if (state.checking) stringResource(R.string.app_update_checking)
-            else state.message ?: stringResource(R.string.app_update_installed, BuildConfig.VERSION_NAME),
-        onClick = { AppUpdater.check() },
-    )
-    state.release?.let { release ->
-        AppUpdateAvailablePreference(release, onOpen = { AppUpdater.openDetails() })
-    }
+    AppUpdatePreference(state, onCheck = { AppUpdater.check() }, onOpen = { AppUpdater.openDetails() })
 }
 
 @Composable
-internal fun AppUpdateAvailablePreference(release: UpdateRelease, onOpen: () -> Unit) {
+internal fun AppUpdatePreference(state: UpdateState, onCheck: () -> Unit, onOpen: () -> Unit) {
     ArrowPreference(
-        title = stringResource(R.string.app_update_available, release.version),
-        summary = stringResource(R.string.app_update_open),
-        onClick = onOpen,
+        title = stringResource(R.string.app_update_check),
+        summary = when {
+            state.downloading -> stringResource(R.string.app_update_downloading, state.progress ?: 0)
+            state.installing -> stringResource(R.string.app_update_installing)
+            state.checking -> stringResource(R.string.app_update_checking)
+            state.release != null -> stringResource(R.string.app_update_available_summary, state.release.version)
+            else -> state.message ?: stringResource(R.string.app_update_installed, BuildConfig.VERSION_NAME)
+        },
+        onClick = { if (state.release != null) onOpen() else onCheck() },
     )
 }
 

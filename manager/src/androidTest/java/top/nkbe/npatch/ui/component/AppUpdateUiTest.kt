@@ -53,14 +53,18 @@ class AppUpdateUiTest {
         var downloaded = false
         compose.setContent {
             LSPTheme(isDarkTheme = true) {
-                Column { AppUpdateAvailablePreference(release) { showDialog = true } }
+                Column {
+                    AppUpdatePreference(UpdateState(release = release), onCheck = {}, onOpen = { showDialog = true })
+                }
                 // Reproduces MainActivity's sibling placement outside the COUI Scaffold.
                 AppUpdateDetailsDialog(UpdateState(release = release, showDialog = showDialog),
                     onDismiss = { showDialog = false }, onCheck = {},
                     onDownload = { downloaded = true }, onInstall = {})
             }
         }
-        compose.onNodeWithText(compose.activity.getString(R.string.app_update_available, "1.2.0")).performClick()
+        compose.onNodeWithText(compose.activity.getString(R.string.app_update_available_summary, "1.2.0")).assertIsDisplayed()
+        compose.onNodeWithText(compose.activity.getString(R.string.app_update_available, "1.2.0")).assertDoesNotExist()
+        compose.onNodeWithText(compose.activity.getString(R.string.app_update_check)).performClick()
         compose.onNodeWithText("Regression release notes").assertIsDisplayed()
         compose.onNodeWithText(compose.activity.getString(R.string.app_update_download)).performClick()
         compose.runOnIdle { assertTrue(downloaded) }
