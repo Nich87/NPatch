@@ -193,8 +193,8 @@
     <string name="app_update_download_failed">ダウンロードに失敗しました。接続を確認して再試行してください。</string>
     <string name="app_update_invalid_apk">APK が破損しているか、互換性のある新しい NPatch ではありません。</string>
     <string name="app_update_signature_mismatch">更新の署名が現在のアプリと一致しません。同じキーで署名されたビルドが必要です。</string>
-    <string name="app_update_install_permission">このアプリからのインストールを許可し、戻って「更新をインストール」をもう一度押してください。</string>
-    <string name="app_update_install_failed">インストーラーを開けませんでした。再試行してください。</string>
+    <string name="app_update_install_permission">このアプリからのインストールを許可してください。アプリに戻るとインストール確認が開きます。</string>
+    <string name="app_update_install_failed">更新をインストールできませんでした。再試行してください。</string>
     <string name="app_update_background">閉じている時も更新を確認</string>
     <string name="app_update_background_summary">約6時間ごとに確認し、更新があれば通知します。省電力のため Android が確認を遅らせる場合があります。</string>
     <string name="app_update_enable_notifications">更新通知を許可する</string>

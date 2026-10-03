@@ -1,14 +1,12 @@
 package top.nkbe.npatch.update
 
 import android.content.Context
-import android.content.Intent
+import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
-import android.provider.Settings
 import android.os.Build
+import android.util.Log
 import com.android.apksig.ApkVerifier
-import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
-import androidx.core.net.toUri
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +20,9 @@ import kotlinx.coroutines.withContext
 import okhttp3.Request
 import top.nkbe.npatch.BuildConfig
 import top.nkbe.npatch.R
+import top.nkbe.npatch.install.ApkInstallSet
+import top.nkbe.npatch.install.SystemInstallResult
+import top.nkbe.npatch.install.SystemPackageInstaller
 import top.nkbe.npatch.lspApp
 import top.nkbe.npatch.network.NetworkDns
 import java.io.File
@@ -33,13 +34,24 @@ data class UpdateState(
     val checking: Boolean = false,
     val downloading: Boolean = false,
     val installing: Boolean = false,
+    val installRequested: Boolean = false,
+    val awaitingInstallPermission: Boolean = false,
     val progress: Int? = null,
     val release: UpdateRelease? = null,
     val file: File? = null,
     val message: String? = null,
     val showDialog: Boolean = false,
     val upToDate: Boolean = false,
-)
+) {
+    internal fun shouldResumeInstallation(installPermissionGranted: Boolean): Boolean =
+        installRequested || (awaitingInstallPermission && installPermissionGranted)
+
+    internal fun beginInstallation(): UpdateState? {
+        if (checking || downloading || installing || file == null || release == null) return null
+        return copy(installing = true, message = null, showDialog = false,
+            installRequested = false, awaitingInstallPermission = false)
+    }
+}
 
 /** Process-owned work survives tab changes and Activity recreation. */
 object AppUpdater {
@@ -129,7 +141,8 @@ object AppUpdater {
         val old = mutableState.value
         val release = old.release ?: return
         if (old.checking || old.downloading || old.installing) return
-        mutableState.value = old.copy(downloading = true, progress = 0, message = null, file = null)
+        mutableState.value = old.copy(downloading = true, progress = 0, message = null, file = null,
+            showDialog = false, installRequested = false, awaitingInstallPermission = false)
         scope.launch {
             try {
                 val file = withContext(Dispatchers.IO) {
@@ -173,41 +186,61 @@ object AppUpdater {
                         target
                     } finally { partial.delete() }
                 }
-                mutableState.value = mutableState.value.copy(downloading = false, progress = null, file = file)
+                mutableState.update { it.copy(downloading = false, progress = null, file = file,
+                    installRequested = true) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                mutableState.value = mutableState.value.copy(downloading = false, progress = null,
-                    message = errorMessage(e, R.string.app_update_download_failed))
+                Log.e("NPatch-Updater", "Update download failed", e)
+                mutableState.update { it.copy(downloading = false, progress = null,
+                    message = errorMessage(e, R.string.app_update_download_failed)) }
             }
         }
     }
 
-    fun install(context: Context) {
+    /** Called only while the Activity is resumed, so Android can show its confirmation UI. */
+    fun resumePendingInstallation() {
         val current = mutableState.value
-        if (current.installing || current.downloading || current.checking) return
-        val file = current.file ?: return
-        val release = current.release ?: return
-        mutableState.value = current.copy(installing = true, message = null)
+        if (current.shouldResumeInstallation(
+                current.awaitingInstallPermission && lspApp.packageManager.canRequestPackageInstalls())) {
+            install()
+        }
+    }
+
+    fun install() {
+        val current = mutableState.value
+        val started = current.beginInstallation() ?: return
+        val file = requireNotNull(current.file)
+        val release = requireNotNull(current.release)
+        mutableState.value = started
         scope.launch {
             try {
-                withContext(Dispatchers.IO) { validateApk(context.applicationContext, file, release) }
-                if (!context.packageManager.canRequestPackageInstalls()) {
-                    mutableState.value = mutableState.value.copy(message = context.getString(R.string.app_update_install_permission))
-                    context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                        "package:${context.packageName}".toUri()))
-                    return@launch
+                val installSet = withContext(Dispatchers.IO) {
+                    validateApk(lspApp, file, release)
+                    ApkInstallSet.fromFiles(lspApp, listOf(file))
                 }
-                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-                context.startActivity(Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(uri, "application/vnd.android.package-archive")
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                })
+                when (val result = SystemPackageInstaller.install(lspApp, installSet)) {
+                    SystemInstallResult.PermissionRequired -> mutableState.update {
+                        it.copy(awaitingInstallPermission = true,
+                            message = lspApp.getString(R.string.app_update_install_permission))
+                    }
+                    is SystemInstallResult.Completed -> when (result.status) {
+                        PackageInstaller.STATUS_SUCCESS -> mutableState.update {
+                            it.copy(release = null, file = null, upToDate = true)
+                        }
+                        PackageInstaller.STATUS_FAILURE_ABORTED -> Unit
+                        else -> {
+                            Log.e("NPatch-Updater", "Update install failed: ${result.status}: ${result.message}")
+                            mutableState.update { it.copy(message = lspApp.getString(R.string.app_update_install_failed)) }
+                        }
+                    }
+                }
             } catch (e: CancellationException) { throw e
             } catch (e: Exception) {
-                mutableState.value = mutableState.value.copy(message = errorMessage(e, R.string.app_update_install_failed))
+                Log.e("NPatch-Updater", "Unable to start update installation", e)
+                mutableState.update { it.copy(message = errorMessage(e, R.string.app_update_install_failed)) }
             } finally {
-                mutableState.value = mutableState.value.copy(installing = false)
+                mutableState.update { it.copy(installing = false) }
             }
         }
     }

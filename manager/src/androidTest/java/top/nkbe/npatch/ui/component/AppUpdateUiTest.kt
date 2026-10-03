@@ -68,11 +68,10 @@ class AppUpdateUiTest {
         compose.onNodeWithText("Regression release notes").assertIsDisplayed()
         compose.onNodeWithText(compose.activity.getString(R.string.app_update_download)).performClick()
         compose.runOnIdle { assertTrue(downloaded) }
-        compose.onNodeWithText(compose.activity.getString(R.string.app_update_later)).performClick()
         compose.onNodeWithText("Regression release notes").assertDoesNotExist()
     }
 
-    @Test fun homeCardTapShowsDownloadProgressAndCanReopenAfterDismissal() {
+    @Test fun downloadClosesDialogAndProgressCardCanReopenIt() {
         var state by mutableStateOf(UpdateState(release = release))
         compose.setContent {
             LSPTheme(isDarkTheme = true) {
@@ -83,7 +82,6 @@ class AppUpdateUiTest {
         }
         compose.onNodeWithText(compose.activity.getString(R.string.app_update_open)).performClick()
         compose.onNodeWithText(compose.activity.getString(R.string.app_update_download)).performClick()
-        compose.onNodeWithText(compose.activity.getString(R.string.app_update_later)).performClick()
         compose.onNodeWithText("Regression release notes").assertDoesNotExist()
         compose.onNodeWithText(compose.activity.getString(R.string.app_update_downloading, 42)).assertIsDisplayed().performClick()
         compose.onNodeWithText("Regression release notes").assertIsDisplayed()

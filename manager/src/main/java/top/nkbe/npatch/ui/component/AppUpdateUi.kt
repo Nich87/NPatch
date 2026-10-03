@@ -53,6 +53,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import io.github.suqi8.coui.kmp.preference.ArrowPreference
 import io.github.suqi8.coui.kmp.preference.SwitchPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
@@ -190,7 +191,13 @@ internal fun AppUpdateStatusCard(state: UpdateState, modifier: Modifier = Modifi
 fun AppUpdateDialog(automaticChecksEnabled: Boolean = true) {
     val state by AppUpdater.state.collectAsState()
     val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            AppUpdater.state.collect { AppUpdater.resumePendingInstallation() }
+        }
+    }
     LaunchedEffect(automaticChecksEnabled) {
         if (!automaticChecksEnabled) return@LaunchedEffect
         AppUpdater.check(automatic = true)
@@ -205,7 +212,7 @@ fun AppUpdateDialog(automaticChecksEnabled: Boolean = true) {
     }
     AppUpdateDetailsDialog(state, onDismiss = { AppUpdater.showDialog(false) },
         onCheck = { AppUpdater.check() }, onDownload = { AppUpdater.download() },
-        onInstall = { AppUpdater.install(context) })
+        onInstall = { AppUpdater.install() })
 }
 
 @Composable
@@ -245,7 +252,10 @@ internal fun AppUpdateDetailsDialog(state: UpdateState, onDismiss: () -> Unit, o
                                 when {
                                     release == null -> onCheck()
                                     state.file != null -> onInstall()
-                                    else -> onDownload()
+                                    else -> {
+                                        onDismiss()
+                                        onDownload()
+                                    }
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),

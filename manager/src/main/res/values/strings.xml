@@ -421,8 +421,8 @@
     <string name="app_update_download_failed">Download failed. Check your connection and try again.</string>
     <string name="app_update_invalid_apk">This APK is damaged or is not a compatible newer NPatch version.</string>
     <string name="app_update_signature_mismatch">The update signing key differs from this installation. Install a build signed with the same key.</string>
-    <string name="app_update_install_permission">Allow installs from this app, then return and tap Install update again.</string>
-    <string name="app_update_install_failed">Could not open the installer. Try again.</string>
+    <string name="app_update_install_permission">Allow installs from this app. The installation confirmation will open when you return.</string>
+    <string name="app_update_install_failed">Could not install the update. Try again.</string>
     <string name="app_update_background">Check for updates in the background</string>
     <string name="app_update_background_summary">Check about every 6 hours and notify you even when NPatch is closed. Android may delay checks to save battery.</string>
     <string name="app_update_enable_notifications">Enable update notifications</string>

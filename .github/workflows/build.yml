@@ -118,9 +118,9 @@ jobs:
         BUILD_DEBUG: ${{ inputs.build_debug }}
       run: |
         if [[ "${GITHUB_REF}" == refs/tags/v* || "$BUILD_DEBUG" == true ]]; then
-          ./gradlew buildAll
+          ./gradlew :manager:testReleaseUnitTest buildAll
         else
-          ./gradlew buildRelease
+          ./gradlew :manager:testReleaseUnitTest buildRelease
         fi
 
     - name: 配布用 APK の署名を検証
