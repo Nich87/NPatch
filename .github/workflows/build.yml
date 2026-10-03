@@ -132,7 +132,7 @@ jobs:
           [[ -f "$apk" ]] || continue
           report=$("$apksigner" verify --verbose --print-certs "$apk")
           printf '%s\n' "$report"
-          fingerprint=$(printf '%s\n' "$report" | awk '/Signer #1 certificate SHA-256 digest:/ { print toupper($NF) }')
+          fingerprint=$(printf '%s\n' "$report" | awk '/certificate SHA-256 digest:/ { print toupper($NF) }' | sort -u)
           # manager/build.gradle.kts の既定の署名許可リストと照合する。
           case "$fingerprint" in
             DB73788534AFFC4BFA3AE16040A2D3A2C2B63EDEA1E07F3A1CF9AFF4DD0995A8|A1F6D52645F53DB0995EDB6DD1C61071B0CA66C281C68ED20B0DEC7268E14A2C) ;;
