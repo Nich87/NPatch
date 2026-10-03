@@ -1,6 +1,7 @@
 import java.util.Base64
 import java.util.Locale
 import com.android.build.api.artifact.SingleArtifact
+import com.android.build.api.variant.HostTestBuilder
 
 val defaultManagerPackageName: String by rootProject.extra
 val apiCode: Int by rootProject.extra
@@ -110,6 +111,10 @@ android {
 }
 
 androidComponents {
+    beforeVariants(selector().withBuildType("release")) { variant ->
+        variant.hostTests[HostTestBuilder.UNIT_TEST_TYPE]?.enable = true
+    }
+
     onVariants { variant ->
         val variantLowered = variant.name.lowercase()
         val variantCapped = variant.name.replaceFirstChar { it.uppercase() }
