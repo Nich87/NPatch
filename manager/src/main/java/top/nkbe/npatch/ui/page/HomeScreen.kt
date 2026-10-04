@@ -1,5 +1,7 @@
 package top.nkbe.npatch.ui.page
 
+import top.nkbe.npatch.ui.component.AppUpdateCard
+
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -202,6 +204,7 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                item { AppUpdateCard(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
                 // ====== Centered app icon ======
                 item {
                     // Spacing between the top app bar and the icon
