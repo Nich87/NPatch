@@ -110,6 +110,9 @@ jobs:
     - name: gradlew に実行権限を付与
       run: chmod +x gradlew
 
+    - name: Manager の Release 単体テスト
+      run: ./gradlew :manager:testReleaseUnitTest
+
     - name: commit id の設定
       run: echo "commit=$(echo ${{ github.sha }} | cut -c-7)" > $GITHUB_ENV
 

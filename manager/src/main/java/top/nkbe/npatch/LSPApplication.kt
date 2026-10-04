@@ -65,6 +65,9 @@ class LSPApplication : Application() {
         // Shizuku, receivers and the installed app list would spend the heap split off for it.
         if (!isMainProcess()) return
 
+        top.nkbe.npatch.update.UpdateNotifications.ensureChannel(this)
+        top.nkbe.npatch.update.UpdateCheckWorker.schedule(this)
+
         ShizukuApi.init()
         ShizukuApi.addOnReadyListener {
             globalScope.launch {
