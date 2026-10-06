@@ -14,9 +14,9 @@ import io.github.suqi8.coui.kmp.theme.COUITheme
 
 private val ShimmerColorShades
     @Composable get() = listOf(
-        COUITheme.colorScheme.secondaryContainer.copy(0.9f),
-        COUITheme.colorScheme.secondaryContainer.copy(0.2f),
-        COUITheme.colorScheme.secondaryContainer.copy(0.9f)
+        COUITheme.colorScheme.primary.copy(alpha = 0.06f),
+        COUITheme.colorScheme.primary.copy(alpha = 0.12f),
+        COUITheme.colorScheme.primary.copy(alpha = 0.06f)
     )
 
 class ShimmerScope(val brush: Brush)

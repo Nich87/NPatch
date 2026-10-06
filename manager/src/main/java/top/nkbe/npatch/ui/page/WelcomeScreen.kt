@@ -12,6 +12,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -40,26 +42,23 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathParser
-import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -74,11 +73,10 @@ import top.nkbe.npatch.BuildConfig
 import top.nkbe.npatch.R
 import top.nkbe.npatch.config.Configs
 import top.nkbe.npatch.ui.component.NPatchScaffold
-import top.nkbe.npatch.ui.util.backgroundAwareCardColors
 import top.nkbe.npatch.ui.util.backgroundAwareColor
 import io.github.suqi8.coui.kmp.basic.Button
 import io.github.suqi8.coui.kmp.basic.ButtonDefaults
-import io.github.suqi8.coui.kmp.basic.Card
+import top.nkbe.npatch.ui.component.GlassCard
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.SmallTitle
 import io.github.suqi8.coui.kmp.basic.Text
@@ -222,10 +220,8 @@ fun WelcomeScreen(
 private fun WelcomeIntroPage() {
     val versionLabel = stringResource(R.string.welcome_version, BuildConfig.VERSION_NAME)
     WelcomePageContainer {
-        Card(
+        GlassCard(
             modifier = Modifier.fillMaxWidth(),
-            colors = backgroundAwareCardColors(),
-            showIndication = false,
         ) {
             Column(
                 modifier = Modifier
@@ -275,10 +271,8 @@ private fun WelcomeIntroPage() {
             }
         }
 
-        Card(
+        GlassCard(
             modifier = Modifier.fillMaxWidth(),
-            colors = backgroundAwareCardColors(),
-            showIndication = false,
         ) {
             Column(
                 modifier = Modifier
@@ -334,10 +328,8 @@ private fun WelcomePermissionPage(
         OptionalFeatureCard()
         Spacer(Modifier.height(4.dp))
         SmallTitle(text = stringResource(R.string.welcome_basic_settings_title))
-        Card(
+        GlassCard(
             modifier = Modifier.fillMaxWidth(),
-            colors = backgroundAwareCardColors(),
-            showIndication = false,
         ) {
             Column(
                 modifier = Modifier
@@ -364,35 +356,19 @@ private fun OptionalFeatureCard() {
     }
 
     val isGranted = ShizukuApi.isPermissionGranted
-    val warningContainer = if (COUITheme.colorScheme.surface.luminance() > 0.5f) {
-        Color(0xFFFFE08A)
-    } else {
-        Color(0xFF5C4800)
-    }
-    val warningContent = if (COUITheme.colorScheme.surface.luminance() > 0.5f) {
-        Color(0xFF5A4300)
-    } else {
-        Color(0xFFFFF1BF)
-    }
-    val containerColor = if (isGranted) COUITheme.colorScheme.primaryContainer else warningContainer
-    val contentColor = if (isGranted) COUITheme.colorScheme.onPrimaryContainer else warningContent
+    val contentColor = COUITheme.colorScheme.onSurface
     val shizukuApiVersion = ShizukuApi.getVersionOrNull()
     val shizukuStatusDescription = shizukuApiVersion?.let {
         stringResource(R.string.home_api_version) + " $it"
     } ?: stringResource(R.string.home_shizuku_warning)
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = backgroundAwareCardColors(
-            color = containerColor,
-            contentColor = contentColor
-        ),
-        showIndication = true,
-        onClick = {
-            if (ShizukuApi.isBinderAvailable && !isGranted) {
+    GlassCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = ShizukuApi.isBinderAvailable && !isGranted) {
                 ShizukuApi.requestPermission()
-            }
-        },
+            },
+        highlighted = isGranted,
     ) {
         Row(
             modifier = Modifier.padding(18.dp),
@@ -401,7 +377,7 @@ private fun OptionalFeatureCard() {
             Icon(
                 imageVector = if (isGranted) Icons.Outlined.CheckCircle else Icons.Outlined.Warning,
                 contentDescription = null,
-                tint = contentColor
+                tint = COUITheme.colorScheme.primary
             )
             Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -414,14 +390,14 @@ private fun OptionalFeatureCard() {
                 Text(
                     text = stringResource(if (isGranted) R.string.shizuku_available else R.string.shizuku_unavailable),
                     style = COUITheme.textStyles.body1,
-                    color = contentColor.copy(alpha = 0.92f)
+                    color = COUITheme.colorScheme.onSurfaceVariantSummary
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = shizukuApiVersion?.let { "API $it" }
                         ?: stringResource(R.string.home_shizuku_warning),
                     style = COUITheme.textStyles.body2,
-                    color = contentColor.copy(alpha = 0.82f),
+                    color = COUITheme.colorScheme.onSurfaceVariantSummary,
                     modifier = Modifier.semantics {
                         contentDescription = shizukuStatusDescription
                     }
@@ -431,7 +407,7 @@ private fun OptionalFeatureCard() {
                     text = stringResource(R.string.welcome_optional_summary),
                     style = COUITheme.textStyles.body2,
                     fontSize = 13.sp,
-                    color = contentColor.copy(alpha = 0.9f)
+                    color = COUITheme.colorScheme.onSurfaceVariantSummary
                 )
             }
         }
@@ -447,10 +423,8 @@ private fun WelcomeDisclaimerPage() {
             summary = stringResource(R.string.welcome_disclaimer_summary)
         )
         Spacer(Modifier.height(16.dp))
-        Card(
+        GlassCard(
             modifier = Modifier.fillMaxWidth(),
-            colors = backgroundAwareCardColors(),
-            showIndication = false,
         ) {
             Column(Modifier.padding(18.dp)) {
                 Text(
@@ -526,13 +500,11 @@ private fun PermissionStatusCard(
     granted: Boolean,
     onClick: () -> Unit,
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = backgroundAwareCardColors(),
-        showIndication = !granted,
-        onClick = {
-            if (!granted) onClick()
-        }
+    GlassCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = !granted, onClick = onClick),
+        highlighted = granted,
     ) {
         Row(
             modifier = Modifier.padding(18.dp),
@@ -587,6 +559,7 @@ private fun WelcomeBottomBar(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.Transparent)
+            .navigationBarsPadding()
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

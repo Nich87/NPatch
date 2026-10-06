@@ -5,7 +5,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
@@ -59,6 +57,7 @@ import io.github.suqi8.coui.kmp.preference.SwitchPreference
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import top.nkbe.npatch.BuildConfig
 import top.nkbe.npatch.R
+import top.nkbe.npatch.ui.theme.GlassStyle
 import top.nkbe.npatch.update.UpdateState
 import top.nkbe.npatch.update.AppUpdater
 import top.nkbe.npatch.update.UpdateNotifications
@@ -156,12 +155,12 @@ internal fun AppUpdateStatusCard(state: UpdateState, modifier: Modifier = Modifi
     Surface(
         onClick = { if (state.release != null || busy) onOpen() else onCheck() },
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = if (state.release != null || busy) colors.primary.copy(alpha = 0.12f) else colors.surface,
+        shape = GlassStyle.cardShape,
+        color = GlassStyle.surfaceColor(highlighted = state.release != null || busy),
         contentColor = colors.onSurface,
-        border = BorderStroke(1.dp, colors.primary.copy(alpha = 0.35f)),
+        border = GlassStyle.border(highlighted = true),
     ) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.padding(GlassStyle.contentPadding), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Box(Modifier.size(52.dp).background(colors.primary.copy(alpha = 0.18f), CircleShape), contentAlignment = Alignment.Center) {
                     if (busy) CircularProgressIndicator(Modifier.size(26.dp), color = colors.primary, strokeWidth = 3.dp)
@@ -222,7 +221,9 @@ internal fun AppUpdateDetailsDialog(state: UpdateState, onDismiss: () -> Unit, o
     val colors = COUITheme.colorScheme
     val release = state.release
     Dialog(onDismissRequest = onDismiss) {
-        Surface(shape = RoundedCornerShape(28.dp), color = colors.surface, contentColor = colors.onSurface) {
+        GlassDialogBackdrop()
+        Surface(shape = GlassStyle.dialogShape, color = GlassStyle.dialogColor(), contentColor = colors.onSurface,
+            border = GlassStyle.border()) {
             Column(Modifier.widthIn(max = 560.dp).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
                     if (release != null) stringResource(R.string.app_update_available, release.version)

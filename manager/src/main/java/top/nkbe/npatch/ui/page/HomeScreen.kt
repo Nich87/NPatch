@@ -1,7 +1,5 @@
 package top.nkbe.npatch.ui.page
 
-import top.nkbe.npatch.ui.component.AppUpdateCard
-
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -17,6 +15,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -57,16 +56,12 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import io.github.suqi8.coui.kmp.basic.Button
 import io.github.suqi8.coui.kmp.basic.ButtonDefaults
-import io.github.suqi8.coui.kmp.basic.Card
-import io.github.suqi8.coui.kmp.basic.CardDefaults
 import io.github.suqi8.coui.kmp.basic.CircularProgressIndicator
-import io.github.suqi8.coui.kmp.basic.HorizontalDivider
 import io.github.suqi8.coui.kmp.basic.Icon
 import io.github.suqi8.coui.kmp.basic.IconButton
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.basic.SmallTopAppBar
 import io.github.suqi8.coui.kmp.basic.TextButton
-import io.github.suqi8.coui.kmp.overlay.OverlayDialog
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -79,6 +74,9 @@ import top.nkbe.npatch.network.proxy.ApkProxyService
 import top.nkbe.npatch.network.proxy.VersionListResult
 import top.nkbe.npatch.repo.KnotRelease
 import top.nkbe.npatch.repo.KnotReleaseLoader
+import top.nkbe.npatch.ui.component.AppUpdateCard
+import top.nkbe.npatch.ui.component.GlassCard
+import top.nkbe.npatch.ui.component.GlassDialog
 import top.nkbe.npatch.ui.component.NPatchScaffold
 import top.nkbe.npatch.ui.util.KnotDownloader
 import top.nkbe.npatch.ui.util.LocalSnackbarHost
@@ -169,9 +167,7 @@ fun HomeScreen(
         }
     }
 
-    // Zero insets for this Scaffold: MainScreen's Box already pads by the status bar and
-    // consumes those insets via consumeWindowInsets, so the COUI SmallTopAppBar's
-    // unconditional top-inset padding sees zero remaining insets (single spacing).
+    // MainScreen already consumes the system bar insets.
     NPatchScaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
@@ -182,21 +178,15 @@ fun HomeScreen(
         ) {
             SmallTopAppBar(
                 title = stringResource(R.string.screen_home),
-                color = COUITheme.colorScheme.surface,
+                color = Color.Transparent,
                 actions = {
                     IconButton(onClick = { refreshKey++ }) {
                         Icon(Icons.Rounded.Refresh, contentDescription = null)
                     }
                     IconButton(onClick = { onNavigateToSettings() }) {
-                        Icon(Icons.Rounded.Settings, contentDescription = null)
+                        Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.screen_settings))
                     }
                 },
-                // IMPORTANT: defaultWindowInsetsPadding must be false here.
-                // COUI's SmallTopAppBar always pads by the top systemBars inset (unconditional);
-                // MainScreen's Box consumes those insets via consumeWindowInsets, so this
-                // SmallTopAppBar sees zero remaining top insets. This flag only disables the
-                // horizontal insets (displayCutout + navigationBars), which would otherwise
-                // double the side padding.
                 defaultWindowInsetsPadding = false,
             )
 
@@ -212,10 +202,8 @@ fun HomeScreen(
                     Box(
                         modifier = Modifier
                             .size(80.dp)
-                            // clip(CircleShape) on the Box already clips ALL children inside it.
-                            // No need to clip the Image separately.
                             .clip(CircleShape)
-                            .background(COUITheme.colorScheme.surfaceContainerHigh),
+                            .background(COUITheme.colorScheme.primary.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (lineApp != null) {
@@ -227,8 +215,6 @@ fun HomeScreen(
                                 bitmap = iconBitmap,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
-                                // The parent Box already clips to CircleShape;
-                                // fillMaxSize ensures the icon fills the circle.
                                 modifier = Modifier.fillMaxSize(),
                             )
                         } else {
@@ -261,7 +247,7 @@ fun HomeScreen(
                                 .height(18.dp)
                                 .width(160.dp)
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(COUITheme.colorScheme.surfaceContainerHigh),
+                                .background(COUITheme.colorScheme.primary.copy(alpha = 0.12f)),
                         )
                     } else if (lineApp != null) {
                         val isPatched = !checkIsApkFixedByLSP(context, LINE_PACKAGE_NAME)
@@ -286,14 +272,14 @@ fun HomeScreen(
 
                 // Patch button
                 item {
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(16.dp))
                     Button(
                         onClick = { showPatchChoiceDialog = true },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp)
-                            .height(48.dp),
-                        cornerRadius = 16.dp,
+                            .padding(horizontal = 16.dp)
+                            .heightIn(min = 48.dp),
+                        cornerRadius = 24.dp,
                         colors = ButtonDefaults.buttonColorsPrimary(),
                     ) {
                         Text(
@@ -305,19 +291,17 @@ fun HomeScreen(
 
                 // Shizuku status
                 item {
-                    Spacer(Modifier.height(12.dp))
-                    Card(
+                    Spacer(Modifier.height(16.dp))
+                    GlassCard(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp),
-                        colors = CardDefaults.defaultColors(
-                            color = COUITheme.colorScheme.surfaceContainerHigh,
-                        ),
+                            .padding(horizontal = 16.dp),
+                        highlighted = shizukuReady,
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                                .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Column(Modifier.weight(1f)) {
@@ -341,6 +325,7 @@ fun HomeScreen(
                             if (!shizukuReady) {
                                 TextButton(
                                     text = stringResource(R.string.shizuku_request),
+                                    modifier = Modifier.heightIn(min = 48.dp),
                                     onClick = { ShizukuApi.requestPermission() },
                                 )
                             }
@@ -351,13 +336,10 @@ fun HomeScreen(
                 // ====== Knot releases section ======
                 item {
                     Spacer(Modifier.height(16.dp))
-                    HorizontalDivider(
-                        color = COUITheme.colorScheme.outline.copy(alpha = 0.5f),
-                    )
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 8.dp),
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
@@ -367,45 +349,39 @@ fun HomeScreen(
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = stringResource(R.string.knot_releases_title),
-                            style = COUITheme.textStyles.subtitle,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Spacer(Modifier.weight(1f))
-                        Text(
-                            text = if (installedKnotVersion != null) {
-                                stringResource(R.string.knot_installed_version, installedKnotVersion)
-                            } else {
-                                stringResource(R.string.knot_not_installed)
-                            },
-                            style = COUITheme.textStyles.footnote2,
-                            color = COUITheme.colorScheme.onSurfaceVariantSummary,
-                        )
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.knot_releases_title),
+                                style = COUITheme.textStyles.subtitle,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                text = if (installedKnotVersion != null) {
+                                    stringResource(R.string.knot_installed_version, installedKnotVersion)
+                                } else {
+                                    stringResource(R.string.knot_not_installed)
+                                },
+                                style = COUITheme.textStyles.footnote2,
+                                color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                            )
+                        }
                     }
                 }
 
                 if (releasesLoading && displayedReleases.isEmpty()) {
                     items(3) {
                         SkeletonReleaseItem()
-                        if (it < 2) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 20.dp),
-                                color = COUITheme.colorScheme.outline.copy(alpha = 0.3f),
-                                thickness = 0.5.dp,
-                            )
-                        }
+                        Spacer(Modifier.height(16.dp))
                     }
                 } else if (displayedReleases.isEmpty()) {
                     item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(60.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
+                        GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                             Text(
                                 text = stringResource(R.string.knot_releases_empty),
+                                modifier = Modifier.padding(16.dp),
                                 style = COUITheme.textStyles.body2,
                                 color = COUITheme.colorScheme.onSurfaceVariantSummary,
                             )
@@ -424,13 +400,7 @@ fun HomeScreen(
                             downloader = downloader,
                             onContinueToPatch = { showPatchChoiceDialog = true },
                         )
-                        if (index < displayedReleases.lastIndex) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(horizontal = 20.dp),
-                                color = COUITheme.colorScheme.outline.copy(alpha = 0.3f),
-                                thickness = 0.5.dp,
-                            )
-                        }
+                        Spacer(Modifier.height(16.dp))
                     }
                 }
 
@@ -485,14 +455,12 @@ fun HomeScreen(
 
     // 保存先フォルダ (URI) 未設定の警告ダイアログ
     if (showStorageWarning) {
-        OverlayDialog(
+        GlassDialog(
             title = stringResource(R.string.storage_not_set_title),
             show = showStorageWarning,
             onDismissRequest = { showStorageWarning = false },
         ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 24.dp),
-            ) {
+            Column(Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.storage_not_set_message))
                 Spacer(Modifier.height(16.dp))
                 Row(
@@ -501,12 +469,12 @@ fun HomeScreen(
                 ) {
                     TextButton(
                         text = stringResource(android.R.string.cancel),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                         onClick = { showStorageWarning = false },
                     )
                     TextButton(
                         text = stringResource(R.string.go_to_settings),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                         onClick = {
                             showStorageWarning = false
                             onNavigateToSettings()
@@ -529,7 +497,7 @@ private fun PatchChoiceDialog(
     onDismiss: () -> Unit,
 ) {
     val show = remember { mutableStateOf(true) }
-    OverlayDialog(
+    GlassDialog(
         title = stringResource(R.string.patch_choice_title),
         show = show.value,
         onDismissRequest = { show.value = false; onDismiss() },
@@ -570,8 +538,10 @@ private fun PatchChoiceItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 12.dp),
+            .heightIn(min = 56.dp)
+            .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
@@ -590,80 +560,28 @@ private fun PatchChoiceItem(
 
 @Composable
 private fun SkeletonReleaseItem() {
-    val shimmer = COUITheme.colorScheme.surfaceContainerHigh
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(shimmer),
-        )
-        Column(Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .height(12.dp)
-                        .width(40.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(shimmer),
-                )
-                Box(
-                    modifier = Modifier
-                        .height(12.dp)
-                        .width(60.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(shimmer),
-                )
-                Spacer(Modifier.weight(1f))
-                Box(
-                    modifier = Modifier
-                        .height(12.dp)
-                        .width(72.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(shimmer),
-                )
-            }
-            Spacer(Modifier.height(6.dp))
+    val shimmer = COUITheme.colorScheme.primary.copy(alpha = 0.12f)
+    GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
             Box(
-                modifier = Modifier
-                    .height(10.dp)
-                    .fillMaxWidth(0.75f)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(shimmer),
+                Modifier.width(120.dp).height(20.dp)
+                    .clip(RoundedCornerShape(4.dp)).background(shimmer),
             )
-            Spacer(Modifier.height(4.dp))
             Box(
-                modifier = Modifier
-                    .height(10.dp)
-                    .fillMaxWidth(0.5f)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(shimmer),
+                Modifier.fillMaxWidth(0.75f).height(12.dp)
+                    .clip(RoundedCornerShape(4.dp)).background(shimmer),
             )
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(
-                    modifier = Modifier
-                        .height(28.dp)
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(shimmer),
-                )
-                Box(
-                    modifier = Modifier
-                        .height(28.dp)
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(shimmer),
-                )
-            }
+            Box(
+                Modifier.fillMaxWidth(0.5f).height(12.dp)
+                    .clip(RoundedCornerShape(4.dp)).background(shimmer),
+            )
+            Box(
+                Modifier.fillMaxWidth().height(48.dp)
+                    .clip(RoundedCornerShape(24.dp)).background(shimmer),
+            )
         }
     }
 }
@@ -682,131 +600,129 @@ private fun KnotReleaseItem(
     var isDownloading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+    GlassCard(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        highlighted = isLatest,
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(R.string.knot_release_version, version),
-                style = COUITheme.textStyles.footnote1,
-                fontWeight = FontWeight.SemiBold,
-                fontFamily = FontFamily.Monospace,
-                color = COUITheme.colorScheme.primary,
-            )
-            if (isLatest) {
-                Spacer(Modifier.width(6.dp))
+        Column(Modifier.padding(16.dp)) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 Text(
-                    text = "\u2022 ${stringResource(R.string.knot_release_latest)}",
-                    style = COUITheme.textStyles.footnote2,
+                    text = stringResource(R.string.knot_release_version, version),
+                    style = COUITheme.textStyles.subtitle,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = FontFamily.Monospace,
                     color = COUITheme.colorScheme.primary,
                 )
+                if (isLatest) {
+                    Text(
+                        text = "\u2022 ${stringResource(R.string.knot_release_latest)}",
+                        style = COUITheme.textStyles.footnote2,
+                        color = COUITheme.colorScheme.primary,
+                    )
+                }
+                if (installedVersion != null && release.version == installedVersion) {
+                    Text(
+                        text = stringResource(R.string.knot_installed),
+                        style = COUITheme.textStyles.footnote2,
+                        color = COUITheme.colorScheme.primary,
+                    )
+                }
+                release.publishedAt?.let { date ->
+                    Text(
+                        text = date.take(10),
+                        style = COUITheme.textStyles.footnote2,
+                        color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                }
             }
-            if (installedVersion != null && release.version == installedVersion) {
-                Spacer(Modifier.width(6.dp))
+
+            release.body?.let { body ->
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    text = stringResource(R.string.knot_installed),
-                    style = COUITheme.textStyles.footnote2,
-                    color = COUITheme.colorScheme.primary,
-                )
-            }
-            Spacer(Modifier.weight(1f))
-            release.publishedAt?.let { date ->
-                Text(
-                    text = date.take(10),
-                    style = COUITheme.textStyles.footnote2,
+                    text = body.lines()
+                        .filter { it.isNotBlank() }
+                        .take(3)
+                        .joinToString("\n") { it.trimStart('*', '\r', ' ') },
+                    style = COUITheme.textStyles.footnote1,
                     color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-        }
 
-        release.body?.let { body ->
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = body.lines()
-                    .filter { it.isNotBlank() }
-                    .take(3)
-                    .joinToString("\n") { it.trimStart('*', '\r', ' ') },
-                style = COUITheme.textStyles.footnote1,
-                color = COUITheme.colorScheme.onSurfaceVariantSummary,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
-        Spacer(Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Button(
-                onClick = {
-                    val downloadUrl = apkAsset?.browserDownloadUrl
-                    if (downloadUrl != null) {
-                        val fileName = apkAsset.name ?: "Knot-v$version.apk"
-                        isDownloading = true
-                        scope.launch {
-                            try {
-                                // suspend するので完了まで isDownloading が true のまま維持される
-                                // -> コルーチン内の withContext(Main) から startActivity を呼ぶため
-                                //    Android 10+ の背景起動制限にもかからない
-                                val installed = downloader.downloadAndOpen(downloadUrl, fileName)
-                                if (installed) {
-                                    // ダウンロード・インストール完了後にパッチ続行へ進む
-                                    onContinueToPatch()
+            Spacer(Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Button(
+                    onClick = {
+                        val downloadUrl = apkAsset?.browserDownloadUrl
+                        if (downloadUrl != null) {
+                            val fileName = apkAsset.name ?: "Knot-v$version.apk"
+                            isDownloading = true
+                            scope.launch {
+                                try {
+                                    // suspend するので完了まで isDownloading が true のまま維持される
+                                    // -> コルーチン内の withContext(Main) から startActivity を呼ぶため
+                                    //    Android 10+ の背景起動制限にもかからない
+                                    val installed = downloader.downloadAndOpen(downloadUrl, fileName)
+                                    if (installed) {
+                                        // ダウンロード・インストール完了後にパッチ続行へ進む
+                                        onContinueToPatch()
+                                    }
+                                } finally {
+                                    isDownloading = false
                                 }
-                            } finally {
-                                isDownloading = false
+                            }
+                        } else {
+                            // APK asset がない場合はブラウザでリリースページへ
+                            release.htmlUrl?.let { url ->
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                             }
                         }
+                    },
+                    enabled = !isDownloading,
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    cornerRadius = 24.dp,
+                ) {
+                    if (isDownloading) {
+                        CircularProgressIndicator(
+                            size = 16.dp,
+                            strokeWidth = 2.dp,
+                        )
                     } else {
-                        // APK asset がない場合はブラウザでリリースページへ
+                        Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                    }
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.knot_release_download),
+                        style = COUITheme.textStyles.footnote1,
+                    )
+                }
+                Button(
+                    onClick = {
                         release.htmlUrl?.let { url ->
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                         }
-                    }
-                },
-                enabled = !isDownloading,
-                modifier = Modifier.weight(1f),
-                cornerRadius = 12.dp,
-            ) {
-                if (isDownloading) {
-                    CircularProgressIndicator(
-                        size = 16.dp,
-                        strokeWidth = 2.dp,
+                    },
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    cornerRadius = 24.dp,
+                    colors = ButtonDefaults.buttonColors(
+                        color = Color.Transparent,
+                        contentColor = COUITheme.colorScheme.primary,
+                    ),
+                ) {
+                    Icon(Icons.Rounded.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.knot_release_changelog),
+                        style = COUITheme.textStyles.footnote1,
                     )
-                } else {
-                    Icon(Icons.Rounded.Download, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = stringResource(R.string.knot_release_download),
-                    style = COUITheme.textStyles.footnote1,
-                )
-            }
-            Button(
-                onClick = {
-                    release.htmlUrl?.let { url ->
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                cornerRadius = 12.dp,
-                colors = ButtonDefaults.buttonColors(
-                    color = Color.Transparent,
-                    contentColor = COUITheme.colorScheme.primary,
-                ),
-            ) {
-                Icon(Icons.Rounded.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = stringResource(R.string.knot_release_changelog),
-                    style = COUITheme.textStyles.footnote1,
-                )
             }
         }
     }
@@ -817,7 +733,7 @@ private fun DialogMessageRow(text: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(24.dp),
+            .padding(16.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -844,7 +760,7 @@ private fun ProxyVersionSelectionDialog(
     }
 
     val show = remember { mutableStateOf(true) }
-    OverlayDialog(
+    GlassDialog(
         title = stringResource(R.string.select_line_version_title),
         show = show.value,
         onDismissRequest = { show.value = false; onDismiss() },

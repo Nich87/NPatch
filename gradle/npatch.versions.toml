@@ -9,12 +9,8 @@ commons-io = "2.20.0"
 beust-jcommander = "1.82"
 google-gson = "2.13.1"
 core-ktx = "1.17.0"
-miuix = "0.9.1"
-haze = "2.0.0-alpha01"
-backdrop = "1.0.6"
 coui = "1.1.0"
 navigation3 = "1.0.1"
-webkit = "1.14.0"
 datastore = "1.1.3"
 coil = "2.7.0"
 
@@ -25,7 +21,6 @@ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 
 [libraries]
-androidx-webkit = { group = "androidx.webkit", name = "webkit", version.ref = "webkit" }
 # Androidx Libraries
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
 androidx-customview = "androidx.customview:customview:1.2.0"
@@ -43,7 +38,6 @@ androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
-androidx-compose-material3-adaptive-navigation-suite = { module = "androidx.compose.material3:material3-adaptive-navigation-suite" }
 
 # Database Libraries
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
@@ -60,9 +54,6 @@ rikka-hidden-stub = { module = "dev.rikka.hidden:stub", version.ref = "hiddenapi
 commons-io = { module = "commons-io:commons-io", version.ref = "commons-io" }
 beust-jcommander = { module = "com.beust:jcommander", version.ref = "beust-jcommander" }
 google-gson = { module = "com.google.code.gson:gson", version.ref = "google-gson" }
-haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
-hazeBlur = { module = "dev.chrisbanes.haze:haze-blur", version.ref = "haze" }
-backdrop = { module = "io.github.kyant0:backdrop", version.ref = "backdrop" }
 coui = { module = "io.github.suqi8.coui.kmp:coui-ui", version.ref = "coui" }
 couiPreference = { module = "io.github.suqi8.coui.kmp:coui-preference", version.ref = "coui" }
 couiIcons = { module = "io.github.suqi8.coui.kmp:coui-icons", version.ref = "coui" }

@@ -1,7 +1,6 @@
 package top.nkbe.npatch.config
 
 import android.content.Context
-import android.os.Build
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -26,9 +25,6 @@ data class ThemeSettings(
     val customColor: Int,
     val themeMode: ThemeMode,
     val amoledBlack: Boolean,
-    val headerAmbience: String,
-    val useFloatingGlassBottomBar: Boolean,
-    val useFloatingGlassBottomBarBlur: Boolean,
     val cardBackgroundAlphaPercent: Int,
 )
 
@@ -43,14 +39,7 @@ object ThemeConfig {
     val CUSTOM_COLOR = intPreferencesKey("custom_color")
     val THEME_MODE = intPreferencesKey("theme_mode")
     val AMOLED_BLACK = booleanPreferencesKey("amoled_black")
-    val HEADER_AMBIENCE = stringPreferencesKey("header_ambience")
-    val USE_FLOATING_GLASS_BOTTOM_BAR = booleanPreferencesKey("use_floating_glass_bottom_bar")
-    val USE_FLOATING_GLASS_BOTTOM_BAR_BLUR = booleanPreferencesKey("use_floating_glass_bottom_bar_blur")
     val CARD_BACKGROUND_ALPHA_PERCENT = intPreferencesKey("card_background_alpha_percent")
-
-    fun isFloatingGlassBottomBarBlurSupported(): Boolean {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    }
 
     fun getThemeFlow(context: Context) = context.dataStore.data.map { prefs ->
         ThemeSettings(
@@ -59,9 +48,6 @@ object ThemeConfig {
             customColor = prefs[CUSTOM_COLOR] ?: DEFAULT_CUSTOM_COLOR,
             themeMode = ThemeMode.fromValue(prefs[THEME_MODE] ?: ThemeMode.SYSTEM.value),
             amoledBlack = prefs[AMOLED_BLACK] ?: false,
-            headerAmbience = prefs[HEADER_AMBIENCE] ?: "circuit",
-            useFloatingGlassBottomBar = prefs[USE_FLOATING_GLASS_BOTTOM_BAR] ?: false,
-            useFloatingGlassBottomBarBlur = prefs[USE_FLOATING_GLASS_BOTTOM_BAR_BLUR] ?: isFloatingGlassBottomBarBlurSupported(),
             cardBackgroundAlphaPercent = (prefs[CARD_BACKGROUND_ALPHA_PERCENT] ?: DEFAULT_CARD_BACKGROUND_ALPHA_PERCENT)
                 .coerceIn(CARD_BACKGROUND_ALPHA_MIN, CARD_BACKGROUND_ALPHA_MAX),
         )

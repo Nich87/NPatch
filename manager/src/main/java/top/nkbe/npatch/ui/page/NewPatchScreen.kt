@@ -18,10 +18,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.suqi8.coui.kmp.basic.ButtonDefaults
 import io.github.suqi8.coui.kmp.basic.COUIScrollBehavior
 import io.github.suqi8.coui.kmp.basic.CircularProgressIndicator
-import io.github.suqi8.coui.kmp.basic.SnackbarHost
 import io.github.suqi8.coui.kmp.basic.Text
 import io.github.suqi8.coui.kmp.basic.TextButton
-import io.github.suqi8.coui.kmp.overlay.OverlayDialog
+import top.nkbe.npatch.ui.component.GlassDialog
+import io.github.suqi8.coui.kmp.basic.SnackbarHost
 import io.github.suqi8.coui.kmp.theme.COUITheme
 import kotlinx.coroutines.launch
 import nkbe.util.NeoPackageManager
@@ -245,7 +245,7 @@ fun PatchAbortDialog(
     onDismiss: () -> Unit
 ) {
     val show = remember { mutableStateOf(true) }
-    OverlayDialog(
+    GlassDialog(
         title = stringResource(R.string.patch_abort_title),
         show = show.value,
         onDismissRequest = { show.value = false; onDismiss() },
@@ -253,7 +253,7 @@ fun PatchAbortDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 8.dp),
+                .padding(vertical = 8.dp),
         ) {
             Text(
                 text = stringResource(R.string.patch_abort_message),
@@ -288,13 +288,13 @@ fun LineDownloadDialog(
     onDismiss: () -> Unit
 ) {
     val show = remember { mutableStateOf(true) }
-    OverlayDialog(
+    GlassDialog(
         title = stringResource(R.string.line_download_dialog_title),
         show = show.value,
         onDismissRequest = { show.value = false; onDismiss() },
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Text(
                 text = stringResource(R.string.line_download_dialog_message),
