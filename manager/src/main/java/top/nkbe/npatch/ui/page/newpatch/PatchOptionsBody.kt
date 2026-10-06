@@ -23,6 +23,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import top.nkbe.npatch.R
 import top.nkbe.npatch.share.Constants
 import top.nkbe.npatch.ui.component.NPatchTopAppBar
+import top.nkbe.npatch.ui.component.GlassCard
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel.ViewAction
 import io.github.suqi8.coui.kmp.basic.DropdownEntry
@@ -107,30 +108,29 @@ fun PatchOptionsBody(modifier: Modifier) {
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(bottom = 84.dp)
+            .padding(horizontal = 16.dp)
+            .padding(top = 12.dp, bottom = 84.dp)
     ) {
-        // ── アプリ情報 ──
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+        GlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            highlighted = true,
         ) {
-            Text(text = viewModel.patchApp.label, style = COUITheme.textStyles.headline1)
-            Text(
-                text = viewModel.patchApp.app.packageName,
-                style = COUITheme.textStyles.body2,
-                color = COUITheme.colorScheme.onSurfaceVariantSummary,
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+            ) {
+                Text(text = viewModel.patchApp.label, style = COUITheme.textStyles.headline1)
+                Text(
+                    text = viewModel.patchApp.app.packageName,
+                    style = COUITheme.textStyles.body2,
+                    color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
         }
-
-        // ── 詳細設定 ──
+        Spacer(Modifier.height(16.dp))
         SmallTitle(text = stringResource(R.string.patch_advanced))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp)
-                .padding(bottom = 16.dp),
-        ) {
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(vertical = 4.dp)) {
                 val maxSigBypassLevel = Constants.SIGBYPASS_HIGH
                 val sigBypassEntries = listOf(

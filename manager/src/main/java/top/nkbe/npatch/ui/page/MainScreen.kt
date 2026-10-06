@@ -1,6 +1,9 @@
 package top.nkbe.npatch.ui.page
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -8,13 +11,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import io.github.suqi8.coui.kmp.basic.NavigationBar
-import io.github.suqi8.coui.kmp.basic.NavigationBarItem
-import io.github.suqi8.coui.kmp.basic.Scaffold
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.Color
+import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.nkbe.npatch.ui.component.GlassCard
+import top.nkbe.npatch.ui.component.NPatchScaffold
 
-/**
- * Main container with Home and Settings tabs using lightweight NavigationBar.
- */
 @Composable
 fun MainScreen(
     navigator: Navigator,
@@ -33,17 +40,28 @@ fun MainScreen(
         }
     }
 
-    Scaffold(
+    NPatchScaffold(
         bottomBar = {
-            NavigationBar {
-                tabs.forEachIndexed { index, tab ->
-                    val selected = safeSelectedTab == index
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = { onSelectedTabChange(index) },
-                        icon = if (selected) tab.selectedIcon else tab.unselectedIcon,
-                        label = stringResource(tab.labelRes),
-                    )
+            Column(Modifier.navigationBarsPadding()) {
+                GlassCard(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    NavigationBar(containerColor = Color.Transparent, windowInsets = WindowInsets(0, 0, 0, 0)) {
+                        tabs.forEachIndexed { index, tab ->
+                            val selected = safeSelectedTab == index
+                            NavigationBarItem(
+                                selected = selected,
+                                onClick = { onSelectedTabChange(index) },
+                                icon = { Icon(tab.icon, contentDescription = null) },
+                                label = { Text(stringResource(tab.labelRes)) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = COUITheme.colorScheme.primary,
+                                    selectedTextColor = COUITheme.colorScheme.primary,
+                                    indicatorColor = COUITheme.colorScheme.primary.copy(alpha = 0.12f),
+                                    unselectedIconColor = COUITheme.colorScheme.onSurfaceVariantSummary,
+                                    unselectedTextColor = COUITheme.colorScheme.onSurfaceVariantSummary,
+                                ),
+                            )
+                        }
+                    }
                 }
             }
         },

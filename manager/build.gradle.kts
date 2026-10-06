@@ -167,7 +167,6 @@ dependencies {
     implementation(npatch.androidx.activity.compose)
     implementation(npatch.androidx.compose.material.icons.extended)
     implementation(npatch.androidx.compose.material3)
-    implementation(npatch.androidx.compose.material3.adaptive.navigation.suite)
     implementation(npatch.androidx.compose.ui)
     implementation(npatch.androidx.compose.ui.tooling.preview)
     implementation(npatch.androidx.core.ktx)
@@ -186,29 +185,20 @@ dependencies {
     // Split APK merging (REAndroid) — merges base + config splits into a single APK
     implementation("com.github.REAndroid:arsclib:a28c6fb2a7")
 
-    implementation(libs.material)
-    implementation(libs.gson)
     implementation(npatch.rikka.shizuku.api)
     implementation(npatch.rikka.shizuku.provider)
     implementation(npatch.rikka.refine)
-    //implementation(npatch.raamcosta.compose.destinations)
     implementation(libs.appiconloader)
     implementation(libs.hiddenapibypass)
 
-    // Haze and glass effects
-    implementation(npatch.haze)
-    implementation(npatch.hazeBlur)
-    implementation(npatch.backdrop)
     implementation(npatch.coui)
     implementation(npatch.couiPreference)
     implementation(npatch.couiIcons)
-    implementation(npatch.androidx.webkit)
 
 
     annotationProcessor(npatch.androidx.room.compiler)
     compileOnly(npatch.rikka.hidden.stub)
     ksp(npatch.androidx.room.compiler)
-    //ksp(npatch.raamcosta.compose.destinations.ksp)
 
     debugImplementation(npatch.androidx.compose.ui.tooling)
     debugImplementation(npatch.androidx.customview)

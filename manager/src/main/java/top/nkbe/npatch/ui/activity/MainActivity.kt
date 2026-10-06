@@ -50,10 +50,9 @@ import top.nkbe.npatch.ui.page.NewPatchScreen
 import top.nkbe.npatch.ui.page.Route
 import top.nkbe.npatch.ui.page.WelcomeScreen
 import top.nkbe.npatch.ui.theme.LSPTheme
+import top.nkbe.npatch.ui.theme.GlassStyle
 import top.nkbe.npatch.ui.util.LocalBackgroundImagePath
 import top.nkbe.npatch.ui.util.LocalCardBackgroundAlpha
-import top.nkbe.npatch.ui.util.LocalFloatingGlassBottomBar
-import top.nkbe.npatch.ui.util.LocalFloatingGlassBottomBarBlur
 import top.nkbe.npatch.ui.util.LocalSnackbarHost
 import io.github.suqi8.coui.kmp.basic.SnackbarHostState
 import io.github.suqi8.coui.kmp.theme.COUITheme
@@ -102,7 +101,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             val systemIsDark = isSystemInDarkTheme()
             val context = LocalContext.current
-            val supportsFloatingGlassBottomBarBlur = ThemeConfig.isFloatingGlassBottomBarBlurSupported()
 
             val themeState by ThemeConfig.getThemeFlow(context).collectAsState(
                 initial = ThemeSettings(
@@ -111,9 +109,6 @@ class MainActivity : ComponentActivity() {
                     customColor = DEFAULT_CUSTOM_COLOR,
                     themeMode = ThemeMode.SYSTEM,
                     amoledBlack = false,
-                    headerAmbience = "circuit",
-                    useFloatingGlassBottomBar = false,
-                    useFloatingGlassBottomBarBlur = supportsFloatingGlassBottomBarBlur,
                     cardBackgroundAlphaPercent = DEFAULT_CARD_BACKGROUND_ALPHA_PERCENT,
                 )
             )
@@ -149,10 +144,6 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(
                     LocalBackgroundImagePath provides themeState.backgroundImageUri,
                     LocalCardBackgroundAlpha provides (themeState.cardBackgroundAlphaPercent / 100f),
-                    LocalFloatingGlassBottomBar provides themeState.useFloatingGlassBottomBar,
-                    LocalFloatingGlassBottomBarBlur provides (
-                        themeState.useFloatingGlassBottomBarBlur && supportsFloatingGlassBottomBarBlur
-                    ),
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         Crossfade(targetState = themeState.backgroundImageUri, label = "global_background") { path ->
@@ -175,6 +166,7 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .background(COUITheme.colorScheme.background)
+                                        .background(GlassStyle.background())
                                 )
                             }
                         }
