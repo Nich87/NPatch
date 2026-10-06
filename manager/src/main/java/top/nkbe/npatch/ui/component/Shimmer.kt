@@ -27,6 +27,11 @@ fun ShimmerAnimation(
     enabled: Boolean = true,
     content: @Composable ShimmerScope.() -> Unit
 ) {
+    if (!enabled) {
+        val brush = Brush.linearGradient(ShimmerColorShades)
+        Box(modifier) { content(ShimmerScope(brush)) }
+        return
+    }
     val transition = rememberInfiniteTransition()
     val translateAnim by transition.animateFloat(
         initialValue = 0f,
@@ -38,7 +43,7 @@ fun ShimmerAnimation(
     )
 
     val brush = Brush.linearGradient(
-        colors = if (enabled) ShimmerColorShades else List(3) { ShimmerColorShades[0] },
+        colors = ShimmerColorShades,
         start = Offset(10f, 10f),
         end = Offset(translateAnim, translateAnim)
     )
