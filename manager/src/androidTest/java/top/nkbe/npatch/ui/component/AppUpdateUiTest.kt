@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -45,6 +46,25 @@ class AppUpdateUiTest {
             assertTrue(text.getSpans(0, text.length, io.noties.markwon.core.spans.StrongEmphasisSpan::class.java).isNotEmpty())
             assertTrue(text.getSpans(0, text.length, io.noties.markwon.core.spans.LinkSpan::class.java).isNotEmpty())
             assertTrue(text.getSpans(0, text.length, io.noties.markwon.core.spans.CodeSpan::class.java).isNotEmpty())
+        }
+    }
+
+    @Test fun changelogAutolinksUrlsAndMentionsButPreservesExistingLinksAndCode() {
+        val notes = "[Guide](https://example.com/guide)\n\nhttps://github.com/2b-zipper/Knot/compare/v2.8.3...v2.9.0\n\n@2b-zipper dev@example.com\n\n`@code https://example.com/code`\n\n```\n@fenced https://example.com/fenced\n```"
+        compose.setContent { LSPTheme(isDarkTheme = true) { ReleaseNotesMarkdown(notes) } }
+        compose.runOnIdle {
+            val view = findTextView(compose.activity.window.decorView) ?: error("Markdown TextView was not created")
+            val text = view.text as android.text.Spanned
+            val links = text.getSpans(0, text.length, android.text.style.URLSpan::class.java)
+            assertEquals(setOf("https://example.com/guide", "https://github.com/2b-zipper/Knot/compare/v2.8.3...v2.9.0", "https://github.com/2b-zipper"), links.map { it.url }.toSet())
+            assertEquals(3, links.size)
+            assertTrue(view.movementMethod is android.text.method.LinkMovementMethod)
+            for (link in links.filterNot { it is io.noties.markwon.core.spans.LinkSpan }) {
+                val paint = android.text.TextPaint().apply { linkColor = view.linkTextColors.defaultColor }
+                link.updateDrawState(paint)
+                assertTrue(paint.isUnderlineText)
+                assertEquals(view.linkTextColors.defaultColor, paint.color)
+            }
         }
     }
 
