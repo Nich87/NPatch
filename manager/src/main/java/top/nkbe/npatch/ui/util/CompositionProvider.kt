@@ -3,7 +3,7 @@ package top.nkbe.npatch.ui.util
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.graphics.Color
-import io.github.suqi8.coui.kmp.basic.SnackbarHostState
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
 
 const val BG_SURFACE_ALPHA = 0.6f
 

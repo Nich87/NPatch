@@ -10,7 +10,7 @@ declare -Ar SOURCE_SHA256=(
     [interface]="003e496cd493e2cd888e05e9596664e716e1b2fcf61ac39887d59113f425dcb5"
 )
 
-git submodule update --init core
+git submodule update --init core external/NeoApk
 git -C core submodule update --init --recursive \
     external/apache/commons-lang \
     external/axml/manifest-editor \

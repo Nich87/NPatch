@@ -18,7 +18,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.ui.graphics.Color
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.nkbe.npatch.ui.component.GlassCard
 import top.nkbe.npatch.ui.component.NPatchScaffold
 
@@ -53,11 +53,11 @@ fun MainScreen(
                                 icon = { Icon(tab.icon, contentDescription = null) },
                                 label = { Text(stringResource(tab.labelRes)) },
                                 colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = COUITheme.colorScheme.primary,
-                                    selectedTextColor = COUITheme.colorScheme.primary,
-                                    indicatorColor = COUITheme.colorScheme.primary.copy(alpha = 0.12f),
-                                    unselectedIconColor = COUITheme.colorScheme.onSurfaceVariantSummary,
-                                    unselectedTextColor = COUITheme.colorScheme.onSurfaceVariantSummary,
+                                    selectedIconColor = MiuixTheme.colorScheme.primary,
+                                    selectedTextColor = MiuixTheme.colorScheme.primary,
+                                    indicatorColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                    unselectedIconColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                    unselectedTextColor = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 ),
                             )
                         }

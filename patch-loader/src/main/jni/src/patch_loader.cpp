@@ -27,7 +27,7 @@
 #include "art/runtime/oat_file_manager.h"
 #include "native_util.h"
 #include "jni/bypass_sig.h"
-
+#include "jni/svc_bypass.h"
 #include "elf/symbol_cache.h"
 #include "utils/jni_helper.hpp"
 
@@ -48,7 +48,7 @@ namespace lspd {
         std::mt19937 gen(rd());
         std::uniform_int_distribution<size_t> pick(0, sizeof(kAlphabet) - 2);
 
-        std::string name = "jit-cache-";
+        std::string name = "npatch-cache-";
         for (int i = 0; i < 12; ++i) {
             name += kAlphabet[pick(gen)];
         }
@@ -127,7 +127,7 @@ namespace lspd {
     void PatchLoader::InitHooks(JNIEnv* env) {
         Context::InitHooks(env);
         RegisterBypass(env);
-
+        RegisterSvcBypass(env);
     }
 
     void PatchLoader::SetupEntryClass(JNIEnv* env) {

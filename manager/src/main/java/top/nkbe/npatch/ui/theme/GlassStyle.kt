@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.nkbe.npatch.ui.util.LocalCardBackgroundAlpha
 
 val LocalGlassAmoled = staticCompositionLocalOf { false }
@@ -23,7 +23,7 @@ object GlassStyle {
 
     @Composable
     fun surfaceColor(highlighted: Boolean = false): Color {
-        val colors = COUITheme.colorScheme
+        val colors = MiuixTheme.colorScheme
         return if (highlighted) colors.primary.copy(alpha = 0.12f)
         else colors.surface.copy(alpha = LocalCardBackgroundAlpha.current)
     }
@@ -31,12 +31,12 @@ object GlassStyle {
     @Composable
     fun border(highlighted: Boolean = false) = BorderStroke(
         1.dp,
-        COUITheme.colorScheme.primary.copy(alpha = if (highlighted) 0.35f else 0.22f),
+        MiuixTheme.colorScheme.primary.copy(alpha = if (highlighted) 0.35f else 0.22f),
     )
 
     @Composable
     fun background(): Brush {
-        val colors = COUITheme.colorScheme
+        val colors = MiuixTheme.colorScheme
         return Brush.verticalGradient(
             if (LocalGlassAmoled.current) listOf(Color.Transparent, Color.Transparent)
             else listOf(colors.primary.copy(alpha = 0.12f), colors.primary.copy(alpha = 0.03f)),
@@ -45,7 +45,7 @@ object GlassStyle {
 
     @Composable
     fun dialogColor(): Color {
-        val colors = COUITheme.colorScheme
+        val colors = MiuixTheme.colorScheme
         val manager = LocalContext.current.getSystemService(WindowManager::class.java)
         val blurAvailable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && manager.isCrossWindowBlurEnabled
         return lerp(colors.surface, colors.primary, 0.04f).copy(alpha = if (blurAvailable) 0.96f else 1f)

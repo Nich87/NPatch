@@ -16,6 +16,9 @@ public class PatchConfig {
     public final String newPackage;
     public final boolean useMicroG;
     public final boolean hideLibs;
+    public final boolean usesCleartextTraffic;
+    public final boolean overrideTargetSdk;
+    public final int overrideTargetSdkValue;
     public final String microgVendor;
 
     public PatchConfig(
@@ -31,6 +34,9 @@ public class PatchConfig {
             String newPackage,
             boolean useMicroG,
             boolean hideLibs,
+            boolean usesCleartextTraffic,
+            boolean overrideTargetSdk,
+            int overrideTargetSdkValue,
             String microgVendor
     ) {
         this.useManager = useManager;
@@ -46,8 +52,101 @@ public class PatchConfig {
         this.outputLog = outputLog;
         this.useMicroG = useMicroG;
         this.hideLibs = hideLibs;
+        this.usesCleartextTraffic = usesCleartextTraffic;
+        this.overrideTargetSdk = overrideTargetSdk;
+        this.overrideTargetSdkValue = overrideTargetSdkValue;
         this.microgVendor = (microgVendor != null && !microgVendor.isEmpty()) ? microgVendor : "app.revanced";
 
         this.lspConfig = LSPConfig.instance;
+    }
+
+    public PatchConfig(
+            boolean useManager,
+            boolean debuggable,
+            boolean overrideVersionCode,
+            int overrideVersionCodeValue,
+            int sigBypassLevel,
+            String originalSignature,
+            String appComponentFactory,
+            boolean injectProvider,
+            boolean outputLog,
+            String newPackage,
+            boolean useMicroG,
+            boolean hideLibs,
+            boolean usesCleartextTraffic
+    ) {
+        this(
+                useManager,
+                debuggable,
+                overrideVersionCode,
+                overrideVersionCodeValue,
+                sigBypassLevel,
+                originalSignature,
+                appComponentFactory,
+                injectProvider,
+                outputLog,
+                newPackage,
+                useMicroG,
+                hideLibs,
+                usesCleartextTraffic,
+                false,
+                0
+        );
+    }
+
+    public PatchConfig(
+            boolean useManager,
+            boolean debuggable,
+            boolean overrideVersionCode,
+            int overrideVersionCodeValue,
+            int sigBypassLevel,
+            String originalSignature,
+            String appComponentFactory,
+            boolean injectProvider,
+            boolean outputLog,
+            String newPackage,
+            boolean useMicroG,
+            boolean hideLibs
+    ) {
+        this(
+                useManager,
+                debuggable,
+                overrideVersionCode,
+                overrideVersionCodeValue,
+                sigBypassLevel,
+                originalSignature,
+                appComponentFactory,
+                injectProvider,
+                outputLog,
+                newPackage,
+                useMicroG,
+                hideLibs,
+                false,
+                false,
+                0
+        );
+    }
+    public PatchConfig(
+            boolean useManager, boolean debuggable, boolean overrideVersionCode,
+            int overrideVersionCodeValue, int sigBypassLevel, String originalSignature,
+            String appComponentFactory, boolean injectProvider, boolean outputLog,
+            String newPackage, boolean useMicroG, boolean hideLibs,
+            boolean usesCleartextTraffic, boolean overrideTargetSdk, int overrideTargetSdkValue
+    ) {
+        this(useManager, debuggable, overrideVersionCode, overrideVersionCodeValue,
+                sigBypassLevel, originalSignature, appComponentFactory, injectProvider,
+                outputLog, newPackage, useMicroG, hideLibs, usesCleartextTraffic,
+                overrideTargetSdk, overrideTargetSdkValue, "app.revanced");
+    }
+
+    public PatchConfig(
+            boolean useManager, boolean debuggable, boolean overrideVersionCode,
+            int overrideVersionCodeValue, int sigBypassLevel, String originalSignature,
+            String appComponentFactory, boolean injectProvider, boolean outputLog,
+            String newPackage, boolean useMicroG, boolean hideLibs, String microgVendor
+    ) {
+        this(useManager, debuggable, overrideVersionCode, overrideVersionCodeValue,
+                sigBypassLevel, originalSignature, appComponentFactory, injectProvider,
+                outputLog, newPackage, useMicroG, hideLibs, false, false, 0, microgVendor);
     }
 }

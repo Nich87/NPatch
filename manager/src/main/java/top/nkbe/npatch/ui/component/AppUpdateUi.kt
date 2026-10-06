@@ -52,9 +52,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.nkbe.npatch.BuildConfig
 import top.nkbe.npatch.R
 import top.nkbe.npatch.ui.theme.GlassStyle
@@ -134,7 +134,7 @@ fun AppUpdateCard(modifier: Modifier = Modifier) {
 
 @Composable
 internal fun AppUpdateStatusCard(state: UpdateState, modifier: Modifier = Modifier, onOpen: () -> Unit, onCheck: () -> Unit) {
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val busy = state.checking || state.downloading || state.installing
     val title = when {
         state.downloading -> stringResource(R.string.app_update_downloading, state.progress ?: 0)
@@ -185,7 +185,7 @@ internal fun AppUpdateStatusCard(state: UpdateState, modifier: Modifier = Modifi
     }
 }
 
-/** Uses a real Android dialog window, independent of COUI's root Scaffold overlay host. */
+/** Uses a real Android dialog window, independent of Miuix's root Scaffold overlay host. */
 @Composable
 fun AppUpdateDialog(automaticChecksEnabled: Boolean = true) {
     val state by AppUpdater.state.collectAsState()
@@ -218,7 +218,7 @@ fun AppUpdateDialog(automaticChecksEnabled: Boolean = true) {
 internal fun AppUpdateDetailsDialog(state: UpdateState, onDismiss: () -> Unit, onCheck: () -> Unit,
     onDownload: () -> Unit, onInstall: () -> Unit) {
     if (!state.showDialog) return
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val release = state.release
     Dialog(onDismissRequest = onDismiss) {
         GlassDialogBackdrop()

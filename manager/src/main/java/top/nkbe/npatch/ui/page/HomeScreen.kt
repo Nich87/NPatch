@@ -54,15 +54,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import io.github.suqi8.coui.kmp.basic.Button
-import io.github.suqi8.coui.kmp.basic.ButtonDefaults
-import io.github.suqi8.coui.kmp.basic.CircularProgressIndicator
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.IconButton
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.SmallTopAppBar
-import io.github.suqi8.coui.kmp.basic.TextButton
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.Button
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -203,7 +203,7 @@ fun HomeScreen(
                         modifier = Modifier
                             .size(80.dp)
                             .clip(CircleShape)
-                            .background(COUITheme.colorScheme.primary.copy(alpha = 0.12f)),
+                            .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center,
                     ) {
                         if (lineApp != null) {
@@ -221,7 +221,7 @@ fun HomeScreen(
                             Icon(
                                 Icons.AutoMirrored.Rounded.ExitToApp,
                                 contentDescription = null,
-                                tint = COUITheme.colorScheme.onSurfaceVariantSummary,
+                                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                 modifier = Modifier.size(40.dp),
                             )
                         }
@@ -233,7 +233,7 @@ fun HomeScreen(
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = stringResource(R.string.line_app_name),
-                        style = COUITheme.textStyles.title1,
+                        style = MiuixTheme.textStyles.title1,
                         fontWeight = FontWeight.Bold,
                     )
                 }
@@ -247,7 +247,7 @@ fun HomeScreen(
                                 .height(18.dp)
                                 .width(160.dp)
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(COUITheme.colorScheme.primary.copy(alpha = 0.12f)),
+                                .background(MiuixTheme.colorScheme.primary.copy(alpha = 0.12f)),
                         )
                     } else if (lineApp != null) {
                         val isPatched = !checkIsApkFixedByLSP(context, LINE_PACKAGE_NAME)
@@ -258,14 +258,14 @@ fun HomeScreen(
                             ) + " \u00B7 " + stringResource(
                                 if (isPatched) R.string.line_patched else R.string.line_not_patched
                             ),
-                            style = COUITheme.textStyles.body2,
-                            color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         )
                     } else {
                         Text(
                             text = stringResource(R.string.line_not_installed),
-                            style = COUITheme.textStyles.body2,
-                            color = COUITheme.colorScheme.error,
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.error,
                         )
                     }
                 }
@@ -284,7 +284,7 @@ fun HomeScreen(
                     ) {
                         Text(
                             text = stringResource(R.string.patch_start),
-                            style = COUITheme.textStyles.body1,
+                            style = MiuixTheme.textStyles.body1,
                         )
                     }
                 }
@@ -307,18 +307,18 @@ fun HomeScreen(
                             Column(Modifier.weight(1f)) {
                                 Text(
                                     text = stringResource(R.string.shizuku),
-                                    style = COUITheme.textStyles.subtitle,
+                                    style = MiuixTheme.textStyles.subtitle,
                                 )
                                 Text(
                                     text = stringResource(
                                         if (shizukuReady) R.string.shizuku_available
                                         else R.string.shizuku_unavailable
                                     ),
-                                    style = COUITheme.textStyles.body2,
+                                    style = MiuixTheme.textStyles.body2,
                                     color = if (shizukuReady) {
-                                        COUITheme.colorScheme.primary
+                                        MiuixTheme.colorScheme.primary
                                     } else {
-                                        COUITheme.colorScheme.onSurfaceVariantSummary
+                                        MiuixTheme.colorScheme.onSurfaceVariantSummary
                                     },
                                 )
                             }
@@ -345,7 +345,7 @@ fun HomeScreen(
                         Icon(
                             Icons.Rounded.NewReleases,
                             contentDescription = null,
-                            tint = COUITheme.colorScheme.primary,
+                            tint = MiuixTheme.colorScheme.primary,
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(Modifier.width(6.dp))
@@ -355,7 +355,7 @@ fun HomeScreen(
                         ) {
                             Text(
                                 text = stringResource(R.string.knot_releases_title),
-                                style = COUITheme.textStyles.subtitle,
+                                style = MiuixTheme.textStyles.subtitle,
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Text(
@@ -364,8 +364,8 @@ fun HomeScreen(
                                 } else {
                                     stringResource(R.string.knot_not_installed)
                                 },
-                                style = COUITheme.textStyles.footnote2,
-                                color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
                         }
                     }
@@ -382,8 +382,8 @@ fun HomeScreen(
                             Text(
                                 text = stringResource(R.string.knot_releases_empty),
                                 modifier = Modifier.padding(16.dp),
-                                style = COUITheme.textStyles.body2,
-                                color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             )
                         }
                     }
@@ -547,20 +547,20 @@ private fun PatchChoiceItem(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = COUITheme.colorScheme.primary,
+            tint = MiuixTheme.colorScheme.primary,
             modifier = Modifier.size(24.dp),
         )
         Spacer(Modifier.width(16.dp))
         Text(
             text = text,
-            style = COUITheme.textStyles.body1,
+            style = MiuixTheme.textStyles.body1,
         )
     }
 }
 
 @Composable
 private fun SkeletonReleaseItem() {
-    val shimmer = COUITheme.colorScheme.primary.copy(alpha = 0.12f)
+    val shimmer = MiuixTheme.colorScheme.primary.copy(alpha = 0.12f)
     GlassCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -611,30 +611,30 @@ private fun KnotReleaseItem(
             ) {
                 Text(
                     text = stringResource(R.string.knot_release_version, version),
-                    style = COUITheme.textStyles.subtitle,
+                    style = MiuixTheme.textStyles.subtitle,
                     fontWeight = FontWeight.SemiBold,
                     fontFamily = FontFamily.Monospace,
-                    color = COUITheme.colorScheme.primary,
+                    color = MiuixTheme.colorScheme.primary,
                 )
                 if (isLatest) {
                     Text(
                         text = "\u2022 ${stringResource(R.string.knot_release_latest)}",
-                        style = COUITheme.textStyles.footnote2,
-                        color = COUITheme.colorScheme.primary,
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = MiuixTheme.colorScheme.primary,
                     )
                 }
                 if (installedVersion != null && release.version == installedVersion) {
                     Text(
                         text = stringResource(R.string.knot_installed),
-                        style = COUITheme.textStyles.footnote2,
-                        color = COUITheme.colorScheme.primary,
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = MiuixTheme.colorScheme.primary,
                     )
                 }
                 release.publishedAt?.let { date ->
                     Text(
                         text = date.take(10),
-                        style = COUITheme.textStyles.footnote2,
-                        color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
                 }
             }
@@ -646,8 +646,8 @@ private fun KnotReleaseItem(
                         .filter { it.isNotBlank() }
                         .take(3)
                         .joinToString("\n") { it.trimStart('*', '\r', ' ') },
-                    style = COUITheme.textStyles.footnote1,
-                    color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                    style = MiuixTheme.textStyles.footnote1,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -700,7 +700,7 @@ private fun KnotReleaseItem(
                     Spacer(Modifier.width(4.dp))
                     Text(
                         text = stringResource(R.string.knot_release_download),
-                        style = COUITheme.textStyles.footnote1,
+                        style = MiuixTheme.textStyles.footnote1,
                     )
                 }
                 Button(
@@ -713,14 +713,14 @@ private fun KnotReleaseItem(
                     cornerRadius = 24.dp,
                     colors = ButtonDefaults.buttonColors(
                         color = Color.Transparent,
-                        contentColor = COUITheme.colorScheme.primary,
+                        contentColor = MiuixTheme.colorScheme.primary,
                     ),
                 ) {
                     Icon(Icons.Rounded.OpenInBrowser, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
                     Text(
                         text = stringResource(R.string.knot_release_changelog),
-                        style = COUITheme.textStyles.footnote1,
+                        style = MiuixTheme.textStyles.footnote1,
                     )
                 }
             }
@@ -739,8 +739,8 @@ private fun DialogMessageRow(text: String) {
     ) {
         Text(
             text = text,
-            style = COUITheme.textStyles.body2,
-            color = COUITheme.colorScheme.onSurfaceVariantSummary
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary
         )
     }
 }

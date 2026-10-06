@@ -27,7 +27,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "NPatch"
 include(
-    ":apkzlib",
     ":manager",
     ":meta-loader",
     ":patch",
@@ -44,5 +43,11 @@ includeBuild("core") {
         substitute(module("vector:core")).using(project(":xposed"))
         substitute(module("vector:daemon-service")).using(project(":services:daemon-service"))
         substitute(module("vector:stubs")).using(project(":hiddenapi:stubs"))
+    }
+}
+
+includeBuild("external/NeoApk") {
+    dependencySubstitution {
+        substitute(module("top.nkbe:NeoApk")).using(project(":"))
     }
 }

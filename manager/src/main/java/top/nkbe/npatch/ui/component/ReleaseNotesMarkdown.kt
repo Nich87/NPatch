@@ -12,7 +12,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.viewinterop.AndroidView
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import io.noties.markwon.AbstractMarkwonPlugin
 import io.noties.markwon.Markwon
 import io.noties.markwon.core.MarkwonTheme
@@ -24,7 +24,7 @@ import io.noties.markwon.ext.tasklist.TaskListPlugin
 @Composable
 internal fun ReleaseNotesMarkdown(markdown: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val colors = COUITheme.colorScheme
+    val colors = MiuixTheme.colorScheme
     val foreground = colors.onSurface.toArgb()
     val accent = colors.primary.toArgb()
     val codeBackground = colors.primary.copy(alpha = 0.1f).toArgb()
