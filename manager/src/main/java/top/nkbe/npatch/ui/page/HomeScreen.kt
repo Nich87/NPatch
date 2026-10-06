@@ -78,6 +78,8 @@ import top.nkbe.npatch.ui.component.AppUpdateCard
 import top.nkbe.npatch.ui.component.GlassCard
 import top.nkbe.npatch.ui.component.GlassDialog
 import top.nkbe.npatch.ui.component.NPatchScaffold
+import top.nkbe.npatch.ui.component.ReleaseNotesMarkdown
+import top.nkbe.npatch.ui.theme.GlassStyle
 import top.nkbe.npatch.ui.util.KnotDownloader
 import top.nkbe.npatch.ui.util.LocalSnackbarHost
 import top.nkbe.npatch.ui.util.checkIsApkFixedByLSP
@@ -598,10 +600,26 @@ private fun KnotReleaseItem(
     val version = release.version ?: release.tagName ?: return
     val apkAsset = release.assets.firstOrNull { it.name?.endsWith(".apk") == true }
     var isDownloading by remember { mutableStateOf(false) }
+    var showChangelog by remember(release.tagName) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
+    GlassDialog(
+        title = stringResource(R.string.knot_release_version, version),
+        show = showChangelog,
+        onDismissRequest = { showChangelog = false },
+    ) {
+        val notes = release.body.orEmpty()
+        if (notes.isBlank()) Text(stringResource(R.string.app_update_no_notes))
+        else ReleaseNotesMarkdown(notes)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(text = stringResource(R.string.app_update_later), onClick = { showChangelog = false })
+        }
+    }
+
     GlassCard(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+            .clip(GlassStyle.cardShape)
+            .clickable(onClickLabel = stringResource(R.string.knot_release_changelog)) { showChangelog = true },
         highlighted = isLatest,
     ) {
         Column(Modifier.padding(16.dp)) {
