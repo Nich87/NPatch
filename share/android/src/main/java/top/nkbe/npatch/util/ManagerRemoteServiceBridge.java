@@ -5,13 +5,14 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 
-import org.lsposed.lspd.service.ILSPInjectedModuleService;
+import org.matrix.vector.ipc.IModuleService;
+import top.nkbe.npatch.share.Constants;
 
 /**
  * Internal bridge used by a scoped target to obtain the Manager-backed read-only remote service.
  */
 public final class ManagerRemoteServiceBridge {
-    private static final String AUTHORITY = "app.voidhack.npatch.remote";
+    private static final String AUTHORITY = Constants.MANAGER_PACKAGE_NAME + ".remote";
     private static final String METHOD_GET_INJECTED_SERVICE = "getInjectedRemoteService";
     private static final String KEY_MODULE_PACKAGE = "modulePackageName";
     private static final String KEY_BINDER = "binder";
@@ -19,7 +20,7 @@ public final class ManagerRemoteServiceBridge {
     private ManagerRemoteServiceBridge() {
     }
 
-    public static ILSPInjectedModuleService connect(
+    public static IModuleService connect(
             Context context,
             String modulePackageName
     ) {
@@ -32,8 +33,8 @@ public final class ManagerRemoteServiceBridge {
                 extras
         );
         IBinder binder = result == null ? null : result.getBinder(KEY_BINDER);
-        ILSPInjectedModuleService service =
-                ILSPInjectedModuleService.Stub.asInterface(binder);
+        IModuleService service =
+                IModuleService.Stub.asInterface(binder);
         if (service == null) {
             throw new IllegalStateException(
                     "NPatch Manager rejected the injected remote service request");

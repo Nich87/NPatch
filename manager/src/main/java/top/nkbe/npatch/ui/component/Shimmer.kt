@@ -10,13 +10,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private val ShimmerColorShades
     @Composable get() = listOf(
-        COUITheme.colorScheme.secondaryContainer.copy(0.9f),
-        COUITheme.colorScheme.secondaryContainer.copy(0.2f),
-        COUITheme.colorScheme.secondaryContainer.copy(0.9f)
+        MiuixTheme.colorScheme.primary.copy(alpha = 0.06f),
+        MiuixTheme.colorScheme.primary.copy(alpha = 0.12f),
+        MiuixTheme.colorScheme.primary.copy(alpha = 0.06f)
     )
 
 class ShimmerScope(val brush: Brush)
@@ -27,6 +27,11 @@ fun ShimmerAnimation(
     enabled: Boolean = true,
     content: @Composable ShimmerScope.() -> Unit
 ) {
+    if (!enabled) {
+        val brush = Brush.linearGradient(ShimmerColorShades)
+        Box(modifier) { content(ShimmerScope(brush)) }
+        return
+    }
     val transition = rememberInfiniteTransition()
     val translateAnim by transition.animateFloat(
         initialValue = 0f,
@@ -38,7 +43,7 @@ fun ShimmerAnimation(
     )
 
     val brush = Brush.linearGradient(
-        colors = if (enabled) ShimmerColorShades else List(3) { ShimmerColorShades[0] },
+        colors = ShimmerColorShades,
         start = Offset(10f, 10f),
         end = Offset(translateAnim, translateAnim)
     )

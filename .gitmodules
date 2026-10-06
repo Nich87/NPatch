@@ -5,4 +5,7 @@
 [submodule "core"]
 	path = core
 	url = https://github.com/HSSkyBoy/Vector.git
-	branch = master
+	branch = core
+[submodule "external/NeoApk"]
+	path = external/NeoApk
+	url = https://github.com/HSSkyBoy/NeoApk.git

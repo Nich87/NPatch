@@ -1,6 +1,9 @@
 package top.nkbe.npatch.ui.activity
 
 import android.content.Context
+import android.content.Intent
+import top.nkbe.npatch.update.AppUpdater
+import top.nkbe.npatch.update.UpdateNotifications
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -39,6 +42,7 @@ import top.nkbe.npatch.config.ThemeSettings
 import top.nkbe.npatch.config.DEFAULT_CARD_BACKGROUND_ALPHA_PERCENT
 import top.nkbe.npatch.config.DEFAULT_CUSTOM_COLOR
 import top.nkbe.npatch.ui.page.LocalNavigator
+import top.nkbe.npatch.ui.component.AppUpdateDialog
 import top.nkbe.npatch.ui.page.MainScreen
 import top.nkbe.npatch.ui.page.MainTab
 import top.nkbe.npatch.ui.page.Navigator
@@ -46,15 +50,32 @@ import top.nkbe.npatch.ui.page.NewPatchScreen
 import top.nkbe.npatch.ui.page.Route
 import top.nkbe.npatch.ui.page.WelcomeScreen
 import top.nkbe.npatch.ui.theme.LSPTheme
+import top.nkbe.npatch.ui.theme.GlassStyle
 import top.nkbe.npatch.ui.util.LocalBackgroundImagePath
 import top.nkbe.npatch.ui.util.LocalCardBackgroundAlpha
-import top.nkbe.npatch.ui.util.LocalFloatingGlassBottomBar
-import top.nkbe.npatch.ui.util.LocalFloatingGlassBottomBarBlur
 import top.nkbe.npatch.ui.util.LocalSnackbarHost
-import io.github.suqi8.coui.kmp.basic.SnackbarHostState
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 class MainActivity : ComponentActivity() {
+
+    override fun onStart() {
+        super.onStart()
+        if (Configs.welcomeSeen) AppUpdater.check(automatic = true)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleUpdateIntent(intent)
+    }
+
+    private fun handleUpdateIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(UpdateNotifications.OPEN_UPDATE, false) == true) {
+            AppUpdater.openDetails()
+            intent.removeExtra(UpdateNotifications.OPEN_UPDATE)
+        }
+    }
 
     override fun attachBaseContext(newBase: Context) {
         val prefs = newBase.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -64,6 +85,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleUpdateIntent(intent)
 
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.auto(
@@ -79,7 +101,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             val systemIsDark = isSystemInDarkTheme()
             val context = LocalContext.current
-            val supportsFloatingGlassBottomBarBlur = ThemeConfig.isFloatingGlassBottomBarBlurSupported()
 
             val themeState by ThemeConfig.getThemeFlow(context).collectAsState(
                 initial = ThemeSettings(
@@ -88,9 +109,6 @@ class MainActivity : ComponentActivity() {
                     customColor = DEFAULT_CUSTOM_COLOR,
                     themeMode = ThemeMode.SYSTEM,
                     amoledBlack = false,
-                    headerAmbience = "circuit",
-                    useFloatingGlassBottomBar = false,
-                    useFloatingGlassBottomBarBlur = supportsFloatingGlassBottomBarBlur,
                     cardBackgroundAlphaPercent = DEFAULT_CARD_BACKGROUND_ALPHA_PERCENT,
                 )
             )
@@ -126,10 +144,6 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(
                     LocalBackgroundImagePath provides themeState.backgroundImageUri,
                     LocalCardBackgroundAlpha provides (themeState.cardBackgroundAlphaPercent / 100f),
-                    LocalFloatingGlassBottomBar provides themeState.useFloatingGlassBottomBar,
-                    LocalFloatingGlassBottomBarBlur provides (
-                        themeState.useFloatingGlassBottomBarBlur && supportsFloatingGlassBottomBarBlur
-                    ),
                 ) {
                     Box(modifier = Modifier.fillMaxSize()) {
                         Crossfade(targetState = themeState.backgroundImageUri, label = "global_background") { path ->
@@ -151,7 +165,8 @@ class MainActivity : ComponentActivity() {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .background(COUITheme.colorScheme.background)
+                                        .background(MiuixTheme.colorScheme.background)
+                                        .background(GlassStyle.background())
                                 )
                             }
                         }
@@ -200,6 +215,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+                        AppUpdateDialog(automaticChecksEnabled = backStack.any { it is Route.Main })
                     }
                 }
             }

@@ -23,20 +23,21 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import top.nkbe.npatch.R
 import top.nkbe.npatch.share.Constants
 import top.nkbe.npatch.ui.component.NPatchTopAppBar
+import top.nkbe.npatch.ui.component.GlassCard
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel.ViewAction
-import io.github.suqi8.coui.kmp.basic.DropdownEntry
-import io.github.suqi8.coui.kmp.basic.DropdownItem
-import io.github.suqi8.coui.kmp.basic.FloatingActionButton
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.IconButton
-import io.github.suqi8.coui.kmp.basic.ScrollBehavior
-import io.github.suqi8.coui.kmp.basic.SmallTitle
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.TextField
-import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.DropdownEntry
+import top.yukonga.miuix.kmp.basic.DropdownItem
+import top.yukonga.miuix.kmp.basic.FloatingActionButton
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.ScrollBehavior
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun ConfiguringTopBar(scrollBehavior: ScrollBehavior, onBackClick: () -> Unit) {
@@ -65,11 +66,11 @@ fun ConfiguringFab() {
             Icon(
                 imageVector = Icons.Outlined.AutoFixHigh,
                 contentDescription = null,
-                tint = COUITheme.colorScheme.onPrimary
+                tint = MiuixTheme.colorScheme.onPrimary
             )
             Text(
                 text = stringResource(R.string.patch_start),
-                color = COUITheme.colorScheme.onPrimary
+                color = MiuixTheme.colorScheme.onPrimary
             )
         }
     }
@@ -107,30 +108,29 @@ fun PatchOptionsBody(modifier: Modifier) {
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(bottom = 84.dp)
+            .padding(horizontal = 16.dp)
+            .padding(top = 12.dp, bottom = 84.dp)
     ) {
-        // ── アプリ情報 ──
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
+        GlassCard(
+            modifier = Modifier.fillMaxWidth(),
+            highlighted = true,
         ) {
-            Text(text = viewModel.patchApp.label, style = COUITheme.textStyles.headline1)
-            Text(
-                text = viewModel.patchApp.app.packageName,
-                style = COUITheme.textStyles.body2,
-                color = COUITheme.colorScheme.onSurfaceVariantSummary,
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+            ) {
+                Text(text = viewModel.patchApp.label, style = MiuixTheme.textStyles.headline1)
+                Text(
+                    text = viewModel.patchApp.app.packageName,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
         }
-
-        // ── 詳細設定 ──
+        Spacer(Modifier.height(16.dp))
         SmallTitle(text = stringResource(R.string.patch_advanced))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp)
-                .padding(bottom = 16.dp),
-        ) {
+        GlassCard(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(vertical = 4.dp)) {
                 val maxSigBypassLevel = Constants.SIGBYPASS_HIGH
                 val sigBypassEntries = listOf(

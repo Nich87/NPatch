@@ -1,9 +1,13 @@
 import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.variant.ApplicationAndroidComponentsExtension
 import com.android.build.gradle.BaseExtension
-import org.eclipse.jgit.api.Git
-import org.eclipse.jgit.internal.storage.file.FileRepository
-import org.eclipse.jgit.storage.file.FileRepositoryBuilder
+import java.io.ByteArrayOutputStream
+import javax.inject.Inject
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.provider.ValueSource
+import org.gradle.api.provider.ValueSourceParameters
+import org.gradle.process.ExecOperations
 import org.gradle.kotlin.dsl.extra
 
 plugins {
@@ -11,51 +15,87 @@ plugins {
     alias(libs.plugins.agp.app) apply false
     alias(npatch.plugins.compose.compiler) apply false
     alias(npatch.plugins.kotlin.android) apply false
+    alias(npatch.plugins.kotlin.jvm) apply false
 }
 
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
+abstract class GitCommitCountValueSource : ValueSource<Int, GitCommitCountValueSource.Parameters> {
+    interface Parameters : ValueSourceParameters {
+        val workingDirectory: Property<String>
+        val candidateRefs: ListProperty<String>
+        val fallback: Property<Int>
     }
-    dependencies {
-        classpath("org.eclipse.jgit:org.eclipse.jgit:7.3.0.202506031305-r")
-    }
-}
 
-val commitCount = runCatching {
-    val repo = FileRepository(rootProject.file(".git"))
-    val refId = repo.refDatabase.exactRef("refs/remotes/origin/miuix")?.objectId
-    if (refId != null) Git(repo).log().add(refId).call().count() else 0
-}.getOrElse {0}.coerceAtLeast(1)
+    @get:Inject abstract val execOperations: ExecOperations
 
-val (coreCommitCount, coreLatestTag) = runCatching {
-    FileRepositoryBuilder().setGitDir(rootProject.file("core/.git"))
-        .setWorkTree(rootProject.file("core"))
-        .build().use { repo ->
-            val git = Git(repo)
-            val count = git.log().add(repo.resolve("HEAD")).call().count()
-            val ver = git.describe().setTags(true).setAbbrev(0).call()?.removePrefix("v") ?: "2.0"
-            count to ver
+    override fun obtain(): Int {
+        for (ref in parameters.candidateRefs.get()) {
+            val output = ByteArrayOutputStream()
+            val result = execOperations.exec {
+                commandLine("git", "-C", parameters.workingDirectory.get(), "rev-list", "--count", ref)
+                standardOutput = output
+                errorOutput = ByteArrayOutputStream()
+                isIgnoreExitValue = true
+            }
+            if (result.exitValue == 0) {
+                output.toString().trim().toIntOrNull()?.let { return it }
+            }
         }
-}.getOrNull() ?: (3068 to "2.1")
-
-val latestTag = runCatching {
-    FileRepository(rootProject.file(".git")).use { repo ->
-        Git(repo).describe().setTags(true).setAbbrev(0).call()
+        return parameters.fallback.get()
     }
-}.getOrNull()?.removePrefix("v")
+}
+
+abstract class GitTagValueSource : ValueSource<String, GitTagValueSource.Parameters> {
+    interface Parameters : ValueSourceParameters {
+        val workingDirectory: Property<String>
+        val fallback: Property<String>
+    }
+
+    @get:Inject abstract val execOperations: ExecOperations
+
+    override fun obtain(): String {
+        val output = ByteArrayOutputStream()
+        val result = execOperations.exec {
+            commandLine("git", "-C", parameters.workingDirectory.get(), "describe", "--tags", "--abbrev=0", "HEAD")
+            standardOutput = output
+            errorOutput = ByteArrayOutputStream()
+            isIgnoreExitValue = true
+        }
+        val version = if (result.exitValue == 0) output.toString().trim().removePrefix("v") else ""
+        return version.ifEmpty { parameters.fallback.get() }
+    }
+}
+
+val commitCount = providers.of(GitCommitCountValueSource::class) {
+    parameters.workingDirectory.set(rootDir.absolutePath)
+    parameters.candidateRefs.set(
+        listOf(
+            "HEAD",
+        )
+    )
+    parameters.fallback.set(1)
+}.get().coerceAtLeast(1)
+
+val coreCommitCount = providers.of(GitCommitCountValueSource::class) {
+    parameters.workingDirectory.set(File(rootDir, "core").absolutePath)
+    parameters.candidateRefs.set(listOf("HEAD"))
+    parameters.fallback.set(3111)
+}.get()
+
+val latestTag = providers.of(GitTagValueSource::class) {
+    parameters.workingDirectory.set(rootDir.absolutePath)
+    parameters.fallback.set("1.0.8")
+}.get()
 
 val defaultManagerPackageName by extra("app.voidhack.npatch")
 val apiCode by extra(102)
 val verCode by extra(commitCount)
-val verName by extra(latestTag ?: "1.0.0")
+val verName by extra(latestTag)
 val coreVerCode by extra(coreCommitCount)
-val coreVerName by extra(coreLatestTag)
+val coreVerName by extra("v2.2-core")
 val androidMinSdkVersion by extra(28)
 val androidTargetSdkVersion by extra(37)
 val androidCompileSdkVersion by extra(37)
-val androidCompileNdkVersion by extra("29.0.14206865")
+val androidCompileNdkVersion by extra("29.0.13846066")
 val androidBuildToolsVersion by extra("37.0.0")
 val androidSourceCompatibility by extra(JavaVersion.VERSION_21)
 val androidTargetCompatibility by extra(JavaVersion.VERSION_21)

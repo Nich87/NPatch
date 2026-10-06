@@ -2,6 +2,11 @@ name: CI ビルド
 
 on:
   workflow_dispatch:
+    inputs:
+      build_debug:
+        description: Debug APK も生成する
+        type: boolean
+        default: false
   pull_request:
   push:
     branches:
@@ -52,16 +57,27 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-ccache-
 
-    - name: 必要に応じて署名キーを書き込む
-      if: (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')) && github.event_name != 'pull_request'
+    - name: リリース署名キーを設定
+      if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')))
+      env:
+        KEY_STORE: ${{ secrets.KEY_STORE }}
+        ANDROID_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+        ANDROID_KEY_ALIAS: ${{ secrets.ALIAS }}
+        ANDROID_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: |
-        if [ ! -z "${{ secrets.KEY_STORE }}" ]; then
-          echo androidStorePassword='${{ secrets.KEY_STORE_PASSWORD }}' >> gradle.properties
-          echo androidKeyAlias='${{ secrets.ALIAS }}' >> gradle.properties
-          echo androidKeyPassword='${{ secrets.KEY_PASSWORD }}' >> gradle.properties
-          echo androidStoreFile='key.jks' >> gradle.properties
-          echo ${{ secrets.KEY_STORE }} | base64 --decode > key.jks
-        fi
+        set -euo pipefail
+        : "${KEY_STORE:?KEY_STORE is required for a signed build}"
+        : "${ANDROID_STORE_PASSWORD:?KEY_STORE_PASSWORD is required}"
+        : "${ANDROID_KEY_ALIAS:?ALIAS is required}"
+        : "${ANDROID_KEY_PASSWORD:?KEY_PASSWORD is required}"
+        umask 077
+        printf '%s' "$KEY_STORE" | base64 --decode > "$RUNNER_TEMP/npatch-release.jks"
+        {
+          printf 'ANDROID_STORE_FILE=%s\n' "$RUNNER_TEMP/npatch-release.jks"
+          printf 'ANDROID_STORE_PASSWORD=%s\n' "$ANDROID_STORE_PASSWORD"
+          printf 'ANDROID_KEY_ALIAS=%s\n' "$ANDROID_KEY_ALIAS"
+          printf 'ANDROID_KEY_PASSWORD=%s\n' "$ANDROID_KEY_PASSWORD"
+        } >> "$GITHUB_ENV"
 
     - name: Java の設定
       uses: actions/setup-java@v5
@@ -94,16 +110,38 @@ jobs:
     - name: gradlew に実行権限を付与
       run: chmod +x gradlew
 
+    - name: パッチ処理と Manager の単体テスト
+      run: ./gradlew :patch:test :manager:testReleaseUnitTest
+
     - name: commit id の設定
       run: echo "commit=$(echo ${{ github.sha }} | cut -c-7)" > $GITHUB_ENV
 
     - name: Gradle でビルド
+      env:
+        BUILD_DEBUG: ${{ inputs.build_debug }}
       run: |
-        if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+        if [[ "${GITHUB_REF}" == refs/tags/v* || "$BUILD_DEBUG" == true ]]; then
           ./gradlew buildAll
         else
           ./gradlew buildRelease
         fi
+
+    - name: 配布用 APK の署名を検証
+      if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v')))
+      run: |
+        set -euo pipefail
+        apksigner="$ANDROID_HOME/build-tools/37.0.0/apksigner"
+        for apk in out/release/*.apk out/debug/*.apk; do
+          [[ -f "$apk" ]] || continue
+          report=$("$apksigner" verify --verbose --print-certs "$apk")
+          printf '%s\n' "$report"
+          fingerprint=$(printf '%s\n' "$report" | awk '/certificate SHA-256 digest:/ { print toupper($NF) }' | sort -u)
+          # manager/build.gradle.kts の既定の署名許可リストと照合する。
+          case "$fingerprint" in
+            DB73788534AFFC4BFA3AE16040A2D3A2C2B63EDEA1E07F3A1CF9AFF4DD0995A8|A1F6D52645F53DB0995EDB6DD1C61071B0CA66C281C68ED20B0DEC7268E14A2C) ;;
+            *) echo "::error::APK signature is not trusted by ManagerIntegrity: $apk"; exit 1 ;;
+          esac
+        done
 
     - name: ccache の統計
       if: always()
@@ -117,7 +155,7 @@ jobs:
         retention-days: 14
 
     - name: Debug アーティファクトのアップロード
-      if: startsWith(github.ref, 'refs/tags/v')
+      if: startsWith(github.ref, 'refs/tags/v') || inputs.build_debug == true
       uses: actions/upload-artifact@v5
       with:
         name: npatch-debug-${{ env.commit }}
@@ -148,3 +186,7 @@ jobs:
           out/debug/*.apk
         generate_release_notes: true
         fail_on_unmatched_files: false
+
+    - name: 署名キーを削除
+      if: always()
+      run: rm -f "$RUNNER_TEMP/npatch-release.jks"

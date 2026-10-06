@@ -1,4 +1,3 @@
--dontobfuscate
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
 -allowaccessmodification
 -renamesourcefileattribute SourceFile
@@ -24,6 +23,7 @@
 -keep class io.github.libxposed.service.** { *; }
 -keep class org.lsposed.lspd.models.** { *; }
 -keep class org.lsposed.lspd.service.** { *; }
+-keep class org.matrix.vector.ipc.** { *; }
 -keep class xposed.dummy.** { *; }
 
 # Legacy resource initialization rewrites the classloader parent at runtime so
@@ -32,12 +32,16 @@
 -keep class org.matrix.vector.legacy.** { *; }
 -keep class org.matrix.vector.nativebridge.ResourcesHook { *; }
 
-# Internal reflection points that still depend on stable names/members.
--keepclassmembers class org.matrix.vector.impl.core.VectorServiceClient {
-    <fields>;
-    <methods>;
-}
--keep class org.matrix.vector.impl.core.VectorModuleManager$EmptyInjectedModuleService { *; }
+# Preserve all Vector framework, IPC, bridge and implementation classes
+-keep class org.matrix.vector.** { *; }
+
+# Preserve NPatch loader, service and specific utility classes
+-keep class top.nkbe.npatch.loader.** { *; }
+-keep class top.nkbe.npatch.service.** { *; }
+-keep class top.nkbe.npatch.util.LocalInjectedModuleService { *; }
+-keep class top.nkbe.npatch.util.ManagerRemoteServiceBridge { *; }
+-keep class top.nkbe.npatch.util.ModuleLoader { *; }
+-keep class top.nkbe.npatch.util.NPatchRemoteStore { *; }
 
 -dontwarn android.content.res.Resources
 -dontwarn android.content.res.Resources$Theme

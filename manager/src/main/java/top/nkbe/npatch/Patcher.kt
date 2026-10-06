@@ -55,7 +55,16 @@ object Patcher {
                     add("-m"); add(it)
                 }
                 if (config.injectProvider) add("--provider")
-                if (config.useMicroG) add("--useMicroG")
+                if (config.useMicroG) {
+                    add("--useMicroG")
+                    add("--microgVendor"); add(config.microgVendor)
+                }
+                if (!config.outputLog) add("--no-output-log")
+                if (config.usesCleartextTraffic) add("--cleartext")
+                if (config.overrideTargetSdk) {
+                    add("--override-target-sdk")
+                    add("--target-sdk"); add(config.overrideTargetSdkValue.toString())
+                }
                 if (config.hideLibs) add("--hidelibs")
                 when (Configs.keyStorePreset) {
                     KeystorePreset.NPATCH -> add("-npa")

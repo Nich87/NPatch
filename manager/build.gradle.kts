@@ -1,6 +1,7 @@
 import java.util.Base64
 import java.util.Locale
 import com.android.build.api.artifact.SingleArtifact
+import com.android.build.api.variant.HostTestBuilder
 
 val defaultManagerPackageName: String by rootProject.extra
 val apiCode: Int by rootProject.extra
@@ -39,8 +40,6 @@ kotlin {
             "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
             "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi",
             "-opt-in=androidx.compose.animation.ExperimentalAnimationApi",
-            "-opt-in=androidx.compose.material.ExperimentalMaterialApi",
-            "-opt-in=androidx.lifecycle.compose.ExperimentalLifecycleComposeApi",
             "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
         )
     }
@@ -49,6 +48,7 @@ kotlin {
 android {
     defaultConfig {
         applicationId = defaultManagerPackageName
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         val managerSignatureAllowlist = (
             System.getenv("NPATCH_MANAGER_SIGNATURE_SHA256")
                 ?: project.findProperty("npatchManagerSignatureSha256")?.toString()
@@ -109,6 +109,10 @@ android {
 }
 
 androidComponents {
+    beforeVariants(selector().withBuildType("release")) { variant ->
+        variant.hostTests[HostTestBuilder.UNIT_TEST_TYPE]?.enable = true
+    }
+
     onVariants { variant ->
         val variantLowered = variant.name.lowercase()
         val variantCapped = variant.name.replaceFirstChar { it.uppercase() }
@@ -142,6 +146,17 @@ androidComponents {
 }
 
 dependencies {
+    implementation("com.android.tools.build:apksig:8.0.2")
+    implementation("androidx.work:work-runtime-ktx:2.11.0")
+    implementation("io.noties.markwon:core:4.6.2")
+    implementation("io.noties.markwon:ext-strikethrough:4.6.2")
+    implementation("io.noties.markwon:ext-tables:4.6.2")
+    implementation("io.noties.markwon:ext-tasklist:4.6.2")
+    testImplementation("junit:junit:4.13.2")
+    androidTestImplementation(platform(npatch.androidx.compose.bom))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("top.nkbe:NeoApk:1.0.2")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
     implementation(projects.patch)
     implementation(projects.share.android)
     implementation(projects.share.java)
@@ -151,18 +166,17 @@ dependencies {
     implementation(npatch.androidx.activity.compose)
     implementation(npatch.androidx.compose.material.icons.extended)
     implementation(npatch.androidx.compose.material3)
-    implementation(npatch.androidx.compose.material3.adaptive.navigation.suite)
     implementation(npatch.androidx.compose.ui)
     implementation(npatch.androidx.compose.ui.tooling.preview)
     implementation(npatch.androidx.core.ktx)
-    implementation(libs.material)
+    implementation("com.google.android.material:material:1.12.0")
     implementation(npatch.androidx.datastore.preferences)
     implementation(npatch.coil.compose)
     implementation(libs.gson)
     implementation(npatch.androidx.lifecycle.viewmodel.compose)
     implementation(npatch.androidx.navigation3.runtime)
     implementation(npatch.androidx.navigation3.ui)
-    implementation(libs.androidx.preference)
+    implementation("androidx.preference:preference-ktx:1.2.1")
     implementation(npatch.androidx.room.ktx)
     implementation(npatch.androidx.room.runtime)
     implementation("com.squareup.okhttp3:okhttp:5.3.2")
@@ -170,29 +184,19 @@ dependencies {
     // Split APK merging (REAndroid) — merges base + config splits into a single APK
     implementation("com.github.REAndroid:arsclib:a28c6fb2a7")
 
-    implementation(libs.material)
-    implementation(libs.gson)
     implementation(npatch.rikka.shizuku.api)
     implementation(npatch.rikka.shizuku.provider)
     implementation(npatch.rikka.refine)
-    //implementation(npatch.raamcosta.compose.destinations)
-    implementation(libs.appiconloader)
-    implementation(libs.hiddenapibypass)
+    implementation(npatch.hiddenapibypass)
 
-    // Haze and glass effects
-    implementation(npatch.haze)
-    implementation(npatch.hazeBlur)
-    implementation(npatch.backdrop)
-    implementation(npatch.coui)
-    implementation(npatch.couiPreference)
-    implementation(npatch.couiIcons)
-    implementation(npatch.androidx.webkit)
+    implementation(npatch.miuix.ui)
+    implementation(npatch.miuix.preference)
+    implementation(npatch.miuix.icons)
 
 
     annotationProcessor(npatch.androidx.room.compiler)
     compileOnly(npatch.rikka.hidden.stub)
     ksp(npatch.androidx.room.compiler)
-    //ksp(npatch.raamcosta.compose.destinations.ksp)
 
     debugImplementation(npatch.androidx.compose.ui.tooling)
     debugImplementation(npatch.androidx.customview)

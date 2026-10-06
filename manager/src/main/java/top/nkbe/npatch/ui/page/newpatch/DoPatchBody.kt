@@ -1,7 +1,6 @@
 package top.nkbe.npatch.ui.page.newpatch
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -21,7 +20,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ErrorOutline
@@ -29,7 +27,6 @@ import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -44,6 +41,7 @@ import nkbe.util.ShizukuApi
 import top.nkbe.npatch.R
 import top.nkbe.npatch.lspApp
 import top.nkbe.npatch.ui.component.ShimmerAnimation
+import top.nkbe.npatch.ui.component.GlassCard
 import top.nkbe.npatch.ui.page.Navigator
 import top.nkbe.npatch.ui.util.LocalSnackbarHost
 import top.nkbe.npatch.ui.util.checkIsApkFixedByLSP
@@ -52,22 +50,21 @@ import top.nkbe.npatch.ui.util.lastItemIndex
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel.PatchState
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel.ViewAction
-import io.github.suqi8.coui.kmp.basic.ButtonDefaults
-import io.github.suqi8.coui.kmp.basic.CircularProgressIndicator
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.SmallTitle
-import io.github.suqi8.coui.kmp.basic.SnackbarResult
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.TextButton
-import io.github.suqi8.coui.kmp.overlay.OverlayDialog
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.SnackbarResult
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.nkbe.npatch.ui.component.GlassDialog
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private const val TAG = "NewPatchPage"
 
 /**
  * パッチ実行中の進捗・ログ表示と、完了後のインストール処理を担うボディ。
  */
-@SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
     val viewModel = viewModel<NewPatchViewModel>()
@@ -99,7 +96,7 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 12.dp)
+            .padding(horizontal = 16.dp)
     ) {
         // ── 状態表示（完了 / 失敗）──
         AnimatedVisibility(
@@ -107,10 +104,11 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
             enter = fadeIn(),
             exit = fadeOut()
         ) {
-            Column(
+            GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 12.dp),
+                highlighted = true,
             ) {
                 Row(
                     modifier = Modifier
@@ -124,7 +122,7 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                             Icons.Outlined.CheckCircle else Icons.Outlined.ErrorOutline,
                         contentDescription = null,
                         tint = if (viewModel.patchState == PatchState.FINISHED)
-                            COUITheme.colorScheme.primary else COUITheme.colorScheme.error,
+                            MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.error,
                         modifier = Modifier.size(32.dp)
                     )
                     Column {
@@ -133,12 +131,12 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                                 stringResource(R.string.patch_start) + " ✓"
                             else
                                 stringResource(R.string.copy_error),
-                            style = COUITheme.textStyles.headline1,
+                            style = MiuixTheme.textStyles.headline1,
                         )
                         Text(
                             text = viewModel.patchApp.app.packageName,
-                            style = COUITheme.textStyles.body2,
-                            color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         )
                     }
                 }
@@ -151,10 +149,11 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
             enter = fadeIn(),
             exit = fadeOut()
         ) {
-            Column(
+            GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 12.dp),
+                highlighted = true,
             ) {
                 Row(
                     modifier = Modifier
@@ -172,12 +171,12 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                                 viewModel.currentStage.isNotEmpty() -> viewModel.currentStage
                                 else -> stringResource(R.string.patch_start) + "…"
                             },
-                            style = COUITheme.textStyles.headline1,
+                            style = MiuixTheme.textStyles.headline1,
                         )
                         Text(
                             text = viewModel.patchApp.app.packageName,
-                            style = COUITheme.textStyles.body2,
-                            color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         )
                     }
                 }
@@ -185,13 +184,12 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
         }
 
         // ── ログ出力エリア ──
-        SmallTitle(text = "Log")
-        Box(
+        SmallTitle(text = stringResource(R.string.patch_log))
+        GlassCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
                 .padding(bottom = 12.dp)
-                .clip(RoundedCornerShape(20.dp))
                 .combinedClickable(
                     onClick = {},
                     onLongClick = {
@@ -205,7 +203,7 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                 ),
         ) {
             ShimmerAnimation(modifier = Modifier.fillMaxSize(), enabled = running) {
-                ProvideTextStyle(COUITheme.textStyles.footnote1.copy(fontFamily = FontFamily.Monospace)) {
+                ProvideTextStyle(MiuixTheme.textStyles.footnote1.copy(fontFamily = FontFamily.Monospace)) {
                     val scrollState = rememberLazyListState()
                     LazyColumn(
                         state = scrollState,
@@ -224,7 +222,7 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
                                 )
                                 Log.ERROR -> Text(
                                     text = line,
-                                    color = COUITheme.colorScheme.error,
+                                    color = MiuixTheme.colorScheme.error,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 4.dp)
@@ -358,13 +356,13 @@ fun UninstallConfirmationDialog(
     onConfirm: () -> Unit
 ) {
     val show = remember { mutableStateOf(true) }
-    OverlayDialog(
+    GlassDialog(
         title = stringResource(R.string.uninstall),
         show = show.value,
         onDismissRequest = { show.value = false; onDismiss() },
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Text(
                 text = stringResource(R.string.patch_uninstall_text),
@@ -476,7 +474,7 @@ fun InstallDialog(
 
     if (installing != 0) {
         val showInstalling = remember { mutableStateOf(true) }
-        OverlayDialog(
+        GlassDialog(
             title = stringResource(if (installing == 1) R.string.installing else R.string.uninstalling),
             show = showInstalling.value,
             onDismissRequest = {},

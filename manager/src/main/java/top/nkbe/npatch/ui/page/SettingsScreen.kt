@@ -29,7 +29,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -57,25 +56,25 @@ import top.nkbe.npatch.database.entity.Module
 import top.nkbe.npatch.network.proxy.ApkProxyService
 import top.nkbe.npatch.ui.activity.MainActivity
 import top.nkbe.npatch.ui.component.NPatchScaffold
+import top.nkbe.npatch.ui.component.AppUpdatePreferences
 import top.nkbe.npatch.ui.util.LocalSnackbarHost
 import top.nkbe.npatch.util.LINE_PACKAGE_NAME
-import top.nkbe.npatch.util.formatLineVersionName
-import io.github.suqi8.coui.kmp.basic.ButtonDefaults
-import io.github.suqi8.coui.kmp.basic.COUIScrollBehavior
-import io.github.suqi8.coui.kmp.basic.HorizontalDivider
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.SmallTitle
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.TextButton
-import io.github.suqi8.coui.kmp.basic.TextField
-import io.github.suqi8.coui.kmp.basic.TopAppBar
-import io.github.suqi8.coui.kmp.overlay.OverlayDialog
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
-import io.github.suqi8.coui.kmp.utils.overScrollVertical
-import io.github.suqi8.coui.kmp.utils.scrollEndHaptic
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
+import top.nkbe.npatch.ui.component.NPatchTopAppBar
+import top.nkbe.npatch.ui.component.GlassCard
+import top.nkbe.npatch.ui.component.GlassDialog
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.KeyStore
@@ -93,11 +92,10 @@ private data class InstalledModule(
 
 @Composable
 fun SettingsScreen() {
-    val scrollBehavior = COUIScrollBehavior()
+    val scrollBehavior = MiuixScrollBehavior()
     NPatchScaffold(
         topBar = {
-            TopAppBar(
-                color = Color.Transparent,
+            NPatchTopAppBar(
                 title = stringResource(R.string.screen_settings),
                 scrollBehavior = scrollBehavior
             )
@@ -110,26 +108,35 @@ fun SettingsScreen() {
                 .scrollEndHaptic()
                 .overScrollVertical()
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            SmallTitle(text = stringResource(R.string.settings_appearance_theme))
-            AppearanceSettings()
-
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-
-            SmallTitle(text = stringResource(R.string.settings_modules))
-            ModuleSettings()
-
-            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-
-            SmallTitle(text = stringResource(R.string.settings_other_settings))
-            ProxyVersionSettings()
-            ProxyCachePreference()
-            LanguagePreference()
-            KeyStore()
-            DetailPatchLogs()
-            WelcomeGuide()
-            StorageDirectory()
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(vertical = 8.dp)) {
+                    SmallTitle(text = stringResource(R.string.settings_appearance_theme))
+                    AppearanceSettings()
+                }
+            }
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(vertical = 8.dp)) {
+                    SmallTitle(text = stringResource(R.string.settings_modules))
+                    ModuleSettings()
+                }
+            }
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(vertical = 8.dp)) {
+                    SmallTitle(text = stringResource(R.string.settings_other_settings))
+                    AppUpdatePreferences()
+                    ProxyVersionSettings()
+                    ProxyCachePreference()
+                    LanguagePreference()
+                    KeyStore()
+                    DetailPatchLogs()
+                    WelcomeGuide()
+                    StorageDirectory()
+                }
+            }
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -183,8 +190,8 @@ private fun ModuleSettings() {
         // HomeScreen がアプリ一覧をまだロード中
         Text(
             text = stringResource(R.string.manage_loading),
-            style = COUITheme.textStyles.body2,
-            color = COUITheme.colorScheme.onSurfaceVariantSummary,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
         )
         return
@@ -193,8 +200,8 @@ private fun ModuleSettings() {
     if (modules.isEmpty()) {
         Text(
             text = stringResource(R.string.settings_modules_empty),
-            style = COUITheme.textStyles.body2,
-            color = COUITheme.colorScheme.onSurfaceVariantSummary,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
         )
         return
@@ -241,9 +248,6 @@ fun AppearanceSettings() {
             customColor = DEFAULT_CUSTOM_COLOR,
             themeMode = ThemeMode.SYSTEM,
             amoledBlack = false,
-            headerAmbience = "circuit",
-            useFloatingGlassBottomBar = false,
-            useFloatingGlassBottomBarBlur = false,
             cardBackgroundAlphaPercent = 60,
         )
     )
@@ -313,7 +317,7 @@ private fun SettingsStartIcon(imageVector: ImageVector) {
             imageVector = imageVector,
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
-            tint = COUITheme.colorScheme.onBackground
+            tint = MiuixTheme.colorScheme.primary
         )
     }
 }
@@ -472,7 +476,7 @@ private fun KeyStore() {
             }
         }
 
-        OverlayDialog(
+        GlassDialog(
             title = stringResource(R.string.settings_keystore_dialog_title),
             show = showDialog.value,
             onDismissRequest = {
@@ -481,9 +485,7 @@ private fun KeyStore() {
         ) {
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp),
+                    .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -498,8 +500,8 @@ private fun KeyStore() {
                 Text(
                     modifier = Modifier.padding(bottom = 8.dp),
                     text = wrongText ?: stringResource(R.string.settings_keystore_desc),
-                    color = if (wrongText != null) COUITheme.colorScheme.error else COUITheme.colorScheme.onSurfaceVariantSummary,
-                    style = COUITheme.textStyles.body2,
+                    color = if (wrongText != null) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    style = MiuixTheme.textStyles.body2,
                     textAlign = TextAlign.Center
                 )
 
@@ -629,7 +631,7 @@ fun StorageDirectory() {
     }
     ArrowPreference(
         title = stringResource(R.string.settings_storage_directory),
-        summary = Configs.storageDirectory ?: "no path set",
+        summary = Configs.storageDirectory ?: stringResource(R.string.settings_storage_directory_not_set),
         startAction = {
             SettingsStartIcon(Icons.Outlined.Folder)
         },
@@ -699,7 +701,7 @@ private fun ProxyVersionSettings() {
         )
     }
 
-    OverlayDialog(
+    GlassDialog(
         title = stringResource(R.string.settings_custom_line_version_dialog_title),
         show = showEditDialog.value,
         onDismissRequest = { showEditDialog.value = false },
@@ -707,12 +709,12 @@ private fun ProxyVersionSettings() {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 8.dp),
+                .padding(vertical = 8.dp),
         ) {
             Text(
                 text = stringResource(R.string.settings_custom_line_version_dialog_desc),
-                style = COUITheme.textStyles.body2,
-                color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.padding(bottom = 12.dp),
             )
             TextField(
@@ -778,7 +780,7 @@ private fun ProxyCachePreference() {
     )
 
     val scope = rememberCoroutineScope()
-    OverlayDialog(
+    GlassDialog(
         title = stringResource(R.string.settings_proxy_cache_clear_title),
         show = showConfirmDialog.value,
         onDismissRequest = { showConfirmDialog.value = false },
@@ -786,12 +788,12 @@ private fun ProxyCachePreference() {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 8.dp),
+                .padding(vertical = 8.dp),
         ) {
             Text(
                 text = stringResource(R.string.settings_proxy_cache_clear_desc),
-                style = COUITheme.textStyles.body2,
-                color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.padding(bottom = 12.dp),
             )
             Row(
@@ -820,4 +822,3 @@ private fun ProxyCachePreference() {
         }
     }
 }
-

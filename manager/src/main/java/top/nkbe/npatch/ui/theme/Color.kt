@@ -1,7 +1,7 @@
 package top.nkbe.npatch.ui.theme
 
 import androidx.compose.ui.graphics.Color
-import io.github.suqi8.coui.kmp.theme.Colors
+import top.yukonga.miuix.kmp.theme.Colors
 
 fun Colors.toAmoled(): Colors = copy(
     background = Color.Black,

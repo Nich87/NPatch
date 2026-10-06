@@ -6,16 +6,14 @@ import static top.nkbe.npatch.share.Constants.LOADER_DEX_ASSET_PATH;
 import static top.nkbe.npatch.share.Constants.ORIGINAL_APK_ASSET_PATH;
 import static top.nkbe.npatch.share.Constants.PROXY_APP_COMPONENT_FACTORY;
 
-import com.android.tools.build.apkzlib.sign.SigningExtension;
-import com.android.tools.build.apkzlib.sign.SigningOptions;
-import com.android.tools.build.apkzlib.zip.AlignmentRules;
-import com.android.tools.build.apkzlib.zip.NestedZip;
-import com.android.tools.build.apkzlib.zip.StoredEntry;
-import com.android.tools.build.apkzlib.zip.ZFile;
-import com.android.tools.build.apkzlib.bytestorage.ChunkBasedByteStorageFactory;
-import com.android.tools.build.apkzlib.bytestorage.OverflowToDiskByteStorageFactory;
-import com.android.tools.build.apkzlib.bytestorage.TemporaryDirectory;
-import com.android.tools.build.apkzlib.zip.ZFileOptions;
+import top.nkbe.nza.dex.DexShimBuilder;
+import top.nkbe.nza.sign.GenericSignatureKey;
+import top.nkbe.nza.sign.SignatureKey;
+import top.nkbe.nza.sign.V2V3SchemeSigner;
+import top.nkbe.nza.zip.ZipConstant;
+import top.nkbe.nza.zip.ZipEntry;
+import top.nkbe.nza.zip.ZipFile;
+import top.nkbe.nza.zip.ZipMaker;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
@@ -26,6 +24,7 @@ import com.wind.meditor.property.ModificationProperty;
 import com.wind.meditor.utils.NodeValue;
 
 import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.IOUtils;
 import top.nkbe.npatch.share.Constants;
 import top.nkbe.npatch.share.LSPConfig;
 import top.nkbe.npatch.share.PatchConfig;
@@ -38,8 +37,12 @@ import pxb.android.axml.AxmlReader;
 import pxb.android.axml.AxmlVisitor;
 import pxb.android.axml.AxmlWriter;
 import pxb.android.axml.NodeVisitor;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -47,23 +50,29 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class NPatch {
+
+    static {
+        try {
+            Class<?> bcClass = Class.forName("org.bouncycastle.jce.provider.BouncyCastleProvider");
+            java.security.Security.addProvider((java.security.Provider) bcClass.getConstructor().newInstance());
+        } catch (Throwable ignored) {
+            // On Android, BouncyCastle is already built into the platform.
+        }
+    }
 
     private static final String NPATCH_KEYSTORE_PASSWORD_ENC = "a2hpbm9s";
     private static final String NPATCH_KEY_ALIAS_ENC = "MT8jag==";
@@ -99,7 +108,7 @@ public class NPatch {
     @Parameter(names = {"-d", "--debuggable"}, description = "Set app to be debuggable")
     private boolean debuggableFlag = false;
 
-    @Parameter(names = {"-l", "--sigbypasslv"}, description = "Signature bypass mode. 0: None, 1: Basic, 2: High, 3: Extreme. default 1")
+    @Parameter(names = {"-l", "--sigbypasslv"}, description = "Signature bypass mode. 0: None, 1: Basic, 2: High, 3: Extreme, 4: Seccomp. Extreme and Seccomp require --manager. default 1")
     private int sigbypassLevel = 1;
 
     @Parameter(names = {"--provider"}, description = "Inject Provider to manager data files")
@@ -120,8 +129,20 @@ public class NPatch {
     @Parameter(names = {"--outputLog"}, description = "Output Log to Media")
     private boolean outputLog = true;
 
+    @Parameter(names = {"--no-output-log"}, description = "Disable log output to media")
+    private boolean disableOutputLog = false;
+
     @Parameter(names = {"--hidelibs"}, description = "Exempt basic environment checks by sanitizing ART and sensitive system library visibility")
     private boolean hideLibs = false;
+
+    @Parameter(names = {"--cleartext", "--usesCleartextTraffic"}, description = "Force android:usesCleartextTraffic=\"true\" in manifest to allow plain HTTP traffic")
+    private boolean usesCleartextTraffic = false;
+
+    @Parameter(names = {"--name"}, description = "Override the patched app's launcher label")
+    private String labelOverride = null;
+
+    @Parameter(names = {"--extract-libs"}, description = "Force android:extractNativeLibs=\"true\" in the manifest so the installer unpacks the app's native libraries")
+    private boolean extractNativeLibs = false;
 
     @Parameter(names = {"-k", "--keystore"}, arity = 4, description = "Set custom signature keystore. Followed by 4 arguments: keystore path, keystore password, keystore alias, keystore alias password")
     private List<String> keystoreArgs = null;
@@ -138,11 +159,20 @@ public class NPatch {
     @Parameter(names = {"--manager"}, description = "Use manager (Cannot work with embedding modules)")
     private boolean useManager = false;
 
+    @Parameter(names = {"--injectdex"}, description = "[Advanced/Opt-in] Physically inject the loader DEX into the main DEX sequence for isolated process and sub-process loading. Only enable this workaround if your modules explicitly need to hook sub-processes.")
+    private boolean injectDex = false;
+
     @Parameter(names = {"-r", "--allowdown"}, description = "Allow downgrade installation by overriding versionCode to 1 (In most cases, the app can still get the correct versionCode)")
     private boolean overrideVersionCode = false;
 
-    @Parameter(names = {"--versioncode"}, description = "Custom versionCode used when --allowdown is enabled, between 1 and 2147483647. default 1")
+    @Parameter(names = {"--versioncode"}, description = "Custom versionCode used when --allowdown is enabled. default 1")
     private int overrideVersionCodeValue = 1;
+
+    @Parameter(names = {"--override-target-sdk"}, description = "Override patched app's target SDK version")
+    private boolean overrideTargetSdk = false;
+
+    @Parameter(names = {"--target-sdk"}, description = "Custom target SDK version value")
+    private int overrideTargetSdkValue = 28;
 
     @Parameter(names = {"-v", "--verbose"}, description = "Verbose output")
     private boolean verbose = false;
@@ -153,7 +183,6 @@ public class NPatch {
     private String packageName;
 
     private static final String ANDROID_MANIFEST_XML = "AndroidManifest.xml";
-    private static final Pattern DEX_NAME_PATTERN = Pattern.compile("^classes(\\d*)\\.dex$");
     private static final String META_INF_PREFIX = "META-INF/";
     private static final String META_INF_MANIFEST = "META-INF/MANIFEST.MF";
     private static final HashSet<String> APK_SIGNATURE_EXTENSIONS = new HashSet<>(Arrays.asList(
@@ -162,30 +191,11 @@ public class NPatch {
             ".DSA",
             ".EC"
     ));
+    private static final Pattern DEX_NAME_PATTERN = Pattern.compile("^classes(\\d*)\\.dex$");
     private static final HashSet<String> ARCHES = new HashSet<>(Arrays.asList(
             "arm64-v8a",
             "x86_64"
     ));
-
-    private static final ZFileOptions Z_FILE_OPTIONS = new ZFileOptions()
-            .setNoTimestamps(true)
-            .setStorageFactory(new ChunkBasedByteStorageFactory(
-                    new OverflowToDiskByteStorageFactory(
-                            zipMemoryCacheBytes(),
-                            TemporaryDirectory::newSystemTemporaryDirectory)))
-            .setAlignmentRule(AlignmentRules.compose(
-                    AlignmentRules.constantForSuffix(".so", 16384),
-                    AlignmentRules.constantForSuffix(ORIGINAL_APK_ASSET_PATH, 4096),
-                    AlignmentRules.constantForSuffix(".arsc", 4)
-            ));
-
-    /** Heap apkzlib may hold before spilling to disk. Its 50MB default is desktop-sized. */
-    private static long zipMemoryCacheBytes() {
-        long maxHeap = Runtime.getRuntime().maxMemory();
-        long ceiling = 50L * 1024 * 1024;
-        if (maxHeap == Long.MAX_VALUE) return ceiling;
-        return Math.max(4L * 1024 * 1024, Math.min(ceiling, maxHeap / 16));
-    }
 
     private final JCommander jCommander;
     private final Logger logger;
@@ -215,8 +225,8 @@ public class NPatch {
             help = true;
         }
         if (sigbypassLevel < Constants.SIGBYPASS_NONE ||
-                sigbypassLevel > Constants.SIGBYPASS_EXTREME) {
-            logger.e("Signature bypass level must be between 0 and 3\n");
+                sigbypassLevel > Constants.SIGBYPASS_SECCOMP) {
+            logger.e("Signature bypass level must be between 0 and 4\n");
             help = true;
         }
         if (overrideVersionCode && overrideVersionCodeValue < 1) {
@@ -225,6 +235,10 @@ public class NPatch {
         }
         if (!"sha1".equals(microgSignatureHash) && !"sha256".equals(microgSignatureHash)) {
             logger.e("MicroG signature hash must be sha1 or sha256\n");
+            help = true;
+        }
+        if (!useManager && sigbypassLevel > Constants.SIGBYPASS_HIGH) {
+            logger.e("Extreme and Seccomp signature bypass modes cannot be used in integrated mode\n");
             help = true;
         }
         this.logger = logger;
@@ -245,6 +259,7 @@ public class NPatch {
     }
 
     public void doCommandLine() throws PatchError, IOException {
+        if (help) throw new PatchError("Invalid patch arguments; see preceding error messages");
         for (var apk : apkPaths) {
             File srcApkFile = new File(apk).getAbsoluteFile();
 
@@ -255,7 +270,7 @@ public class NPatch {
             outputDir.mkdirs();
 
             File outputFile = new File(outputDir, String.format(
-                    Locale.getDefault(), "%s-%d-npatched.apk",
+                    Locale.US, "%s-%d-npatched.apk",
                     FilenameUtils.getBaseName(apkFileName),
                     LSPConfig.instance.VERSION_CODE)
             ).getAbsoluteFile();
@@ -279,250 +294,379 @@ public class NPatch {
 
         logger.i("Parsing original apk...");
 
-        boolean embedOriginal = sigbypassLevel >= Constants.SIGBYPASS_BASIC;
-
-        try (ZFile dstZFile = ZFile.openReadWrite(outputFile, Z_FILE_OPTIONS);
-             ZFile srcZFile = embedOriginal
-                     ? dstZFile.addNestedZip((ignore) -> Constants.ORIGINAL_APK_ASSET_PATH, srcApkFile, false)
-                     : ZFile.openReadOnly(srcApkFile)) {
-
-            // sign apk
-            try {
-                String keyStoreType = "BKS";
-                if (keystoreArgs != null) {
-                    if (keystoreType != null && !keystoreType.isEmpty()) {
-                        keyStoreType = keystoreType;
-                    } else {
-                        String ksPath = keystoreArgs.get(0).toLowerCase(Locale.ROOT);
-                        if (ksPath.endsWith(".bks")) keyStoreType = "BKS";
-                        else if (ksPath.endsWith(".p12") || ksPath.endsWith(".pfx")) keyStoreType = "PKCS12";
-                        else keyStoreType = "JKS";
-                    }
-                }
-                var keyStore = KeyStore.getInstance(keyStoreType);
-                if (useNpatchKeystore || (!useFpaKeystore && keystoreArgs == null)) {
-                    logger.i("Register apk signer with built-in NPatch keystore...");
-                    registerBuiltinSigner(keyStore, dstZFile, "assets/npatch.key", NPATCH_KEYSTORE_PASSWORD_ENC, NPATCH_KEY_ALIAS_ENC);
-                } else if (useFpaKeystore) {
-                    logger.i("Register apk signer with built-in FPA keystore...");
-                    registerBuiltinSigner(keyStore, dstZFile, "assets/fpa_app.key", FPA_KEYSTORE_PASSWORD_ENC, FPA_KEY_ALIAS_ENC);
-                } else if (keystoreArgs != null) {
-                    logger.i("Register apk signer with custom keystore...");
-                    try (var is = new FileInputStream(keystoreArgs.get(0))) {
-                        keyStore.load(is, keystoreArgs.get(1).toCharArray());
-                    }
-                    var entry = (KeyStore.PrivateKeyEntry) keyStore.getEntry(keystoreArgs.get(2), new KeyStore.PasswordProtection(keystoreArgs.get(3).toCharArray()));
-                    new SigningExtension(SigningOptions.builder()
-                            .setMinSdkVersion(27)
-                            .setV2SigningEnabled(true)
-                            .setCertificates((X509Certificate[]) entry.getCertificateChain())
-                            .setKey(entry.getPrivateKey())
-                            .build()).register(dstZFile);
-                }
-            } catch (Exception e) {
-                throw new PatchError("Failed to register signer", e);
+        ManifestParser.Pair pair;
+        try (var tempSrc = new ZipFile(srcApkFile)) {
+            var manifestEntry = tempSrc.getEntry(ANDROID_MANIFEST_XML);
+            if (manifestEntry == null) {
+                throw new PatchError("Provided file is not a valid apk");
             }
+            try (var is = tempSrc.getInputStream(manifestEntry)) {
+                pair = ManifestParser.parseManifestFile(is);
+            }
+        }
+        if (pair == null) {
+            throw new PatchError("Failed to parse AndroidManifest.xml");
+        }
 
-            // copy out manifest file from zlib
-            var manifestEntry = srcZFile.get(ANDROID_MANIFEST_XML);
+        final String appComponentFactory = pair.appComponentFactory;
+        final int minSdkVersion = pair.minSdkVersion;
+        final int effectiveMinSdk = Math.max(minSdkVersion, 28);
+        packageName = pair.packageName;
+
+        String newPackage = newPackageName;
+        if (newPackage == null || newPackage.isEmpty()) {
+            newPackage = pair.packageName;
+        }
+
+        // Entry-hook mode: the host already declares its own appComponentFactory. Instead of
+        // overwriting the manifest to name our stub (a foreign-class IOC visible to any static
+        // scan), keep the host's declared name and inject a tiny shim class of that name whose
+        // superclass is our stub, so the platform's instantiation of it triggers our bootstrap.
+        // A package-relative name (leading '.') is left to the default path: resolving it correctly
+        // under package rename is ambiguous, and the fallback (naming the stub) never regresses.
+        final boolean entryHookMode = appComponentFactory != null
+                && !appComponentFactory.isEmpty()
+                && !appComponentFactory.startsWith(".")
+                && !appComponentFactory.equals(PROXY_APP_COMPONENT_FACTORY);
+
+        logger.d("original appComponentFactory class: " + appComponentFactory);
+        logger.d("original split name: " + pair.splitName);
+        logger.d("original minSdkVersion: " + minSdkVersion);
+
+        logger.i("permissions size: " + (pair.permissions == null ? 0 : pair.permissions.size()));
+        logger.i("use-permissions size: " + (pair.use_permissions == null ? 0 : pair.use_permissions.size()));
+        logger.i("authorities size: " + (pair.authorities == null ? 0 : pair.authorities.size()));
+
+        if (pair.hasIsolatedOrMultiProcessComponents()) {
+            logger.i("--------------------------------------------------");
+            logger.i("[Analysis Hint] Detected " + pair.getIsolatedOrMultiProcessCount() + " isolated/multi-process component(s):");
+            for (String comp : pair.getIsolatedOrMultiProcessComponents()) {
+                logger.i("  - " + comp);
+            }
+            if (!injectDex) {
+                logger.i("If your modules need to hook these sub-processes (e.g. sandbox/isolated), you can enable --injectdex.");
+                logger.i("(Default: disabled. Most UI and business modules only hook the main process)");
+            } else {
+                logger.i("--injectdex enabled: Loader DEX will be injected into the main DEX sequence for sub-process support.");
+            }
+            logger.i("--------------------------------------------------");
+        }
+
+        final boolean isSplit = apkPaths.size() > 1 && pair.splitName != null && !pair.splitName.isEmpty();
+        final boolean embedOriginal = !isSplit;
+
+        SignatureKey signatureKey;
+        try {
+            if (useNpatchKeystore || (!useFpaKeystore && keystoreArgs == null)) {
+                logger.i("Signing apk with built-in NPatch keystore (V2+V3, minSdk " + effectiveMinSdk + ")...");
+                signatureKey = loadBuiltinKey(KeyStore.getInstance("BKS"), "assets/npatch.key", NPATCH_KEYSTORE_PASSWORD_ENC, NPATCH_KEY_ALIAS_ENC);
+            } else if (useFpaKeystore) {
+                logger.i("Signing apk with built-in FPA keystore (V2+V3, minSdk " + effectiveMinSdk + ")...");
+                signatureKey = loadBuiltinKey(KeyStore.getInstance("BKS"), "assets/fpa_app.key", FPA_KEYSTORE_PASSWORD_ENC, FPA_KEY_ALIAS_ENC);
+            } else {
+                logger.i("Signing apk with custom keystore (V2+V3, minSdk " + effectiveMinSdk + ")...");
+                signatureKey = loadCustomKey(keystoreArgs);
+            }
+        } catch (Exception e) {
+            throw new PatchError("Failed to load signing key", e);
+        }
+
+        try (ZipFile srcZip = new ZipFile(srcApkFile);
+             ZipMaker zipMaker = new ZipMaker(outputFile)) {
+
+            Set<String> addedEntries = new HashSet<>();
+            var manifestEntry = srcZip.getEntry(ANDROID_MANIFEST_XML);
             if (manifestEntry == null)
                 throw new PatchError("Provided file is not a valid apk");
 
-            String newPackage = newPackageName;
-
-            int minSdkVersion;
-            // parse the app appComponentFactory full name from the manifest file
-            final String appComponentFactory;
-            ManifestParser.Pair pair;
-            try (var is = manifestEntry.open()) {
-                pair = ManifestParser.parseManifestFile(is);
-                if (pair == null)
-                    throw new PatchError("Failed to parse AndroidManifest.xml");
-                appComponentFactory = pair.appComponentFactory;
-                minSdkVersion = pair.minSdkVersion;
-                packageName = pair.packageName;
-                logger.d("original appComponentFactory class: " + appComponentFactory);
-                logger.d("original split name: " + pair.splitName);
-                logger.d("original minSdkVersion: " + minSdkVersion);
-
-                if (newPackage == null || newPackage.isEmpty()) {
-                    newPackage = pair.packageName;
-                }
-
-                logger.i("permissions size: " + (pair.permissions == null ? 0 : pair.permissions.size()));
-                logger.i("use-permissions size: " + (pair.use_permissions == null ? 0 : pair.use_permissions.size()));
-                logger.i("authorities size: " + (pair.authorities == null ? 0 : pair.authorities.size()));
-            }
-
-            final boolean skipSplit = apkPaths.size() > 1 && pair.splitName != null && !pair.splitName.isEmpty();
-            if (skipSplit) {
-                logger.i("Packing split apk...");
-                for (StoredEntry entry : srcZFile.entries()) {
-                    String name = entry.getCentralDirectoryHeader().getName();
-                    if (dstZFile.get(name) != null) continue;
-                    if (isApkSignatureEntry(name))
-                        continue;
-                    if (srcZFile instanceof NestedZip) {
-                        ((NestedZip) srcZFile).addFileLink(name, name);
-                    } else {
-                        try (InputStream is = entry.open()) {
-                            dstZFile.add(name, is);
+            if (isSplit) {
+                String splitDisplayName = (pair.splitName != null && !pair.splitName.isEmpty())
+                        ? pair.splitName
+                        : srcApkFile.getName();
+                logger.i("Packing split apk: " + splitDisplayName + "...");
+                boolean needModifyManifest = !newPackage.equals(pair.packageName) || overrideVersionCode || overrideTargetSdk || extractNativeLibs;
+                byte[] manifestBytes;
+                if (needModifyManifest) {
+                    ModificationProperty splitProperty = new ModificationProperty();
+                    if (overrideVersionCode) {
+                        splitProperty.addManifestAttribute(new AttributeItem(NodeValue.Manifest.VERSION_CODE, overrideVersionCodeValue));
+                    }
+                    if (overrideTargetSdk) {
+                        splitProperty.addUsesSdkAttribute(new AttributeItem(NodeValue.UsesSDK.TARGET_SDK_VERSION, overrideTargetSdkValue));
+                    }
+                    if (extractNativeLibs) {
+                        splitProperty.addApplicationAttribute(new AttributeItem(NodeValue.Application.EXTRACTNATIVELIBS, Boolean.TRUE));
+                    }
+                    if (!newPackage.equals(pair.packageName)) {
+                        splitProperty.addManifestAttribute(new AttributeItem(NodeValue.Manifest.PACKAGE, newPackage).setNamespace(null));
+                    }
+                    try (var xmlIs = srcZip.getInputStream(manifestEntry);
+                         var os = new ByteArrayOutputStream()) {
+                        new ManifestEditor(xmlIs, os, splitProperty).processManifest();
+                        manifestBytes = os.toByteArray();
+                    } catch (Throwable e) {
+                        logger.e("Failed to modify split manifest: " + e.getMessage() + ", falling back to copy");
+                        try (var xmlIs = srcZip.getInputStream(manifestEntry)) {
+                            manifestBytes = IOUtils.toByteArray(xmlIs);
                         }
                     }
-                }
-                return;
-            }
-
-            logger.i("Patching apk...");
-            String originalSignature = null;
-            if (sigbypassLevel > Constants.SIGBYPASS_NONE) {
-                originalSignature = ApkSignatureHelper.getApkSignInfo(srcApkFile.getAbsolutePath());
-                if (originalSignature == null || originalSignature.isEmpty()) {
-                    throw new PatchError("get original signature failed");
-                }
-                logger.d("Original signature\n" + originalSignature);
-            }
-
-            // modify manifest
-            final var config = new PatchConfig(
-                    useManager,
-                    debuggableFlag,
-                    overrideVersionCode,
-                    overrideVersionCodeValue,
-                    sigbypassLevel,
-                    originalSignature,
-                    appComponentFactory,
-                    isInjectProvider,
-                    outputLog,
-                    newPackage,
-                    useMicroG,
-                    hideLibs
-                            && sigbypassLevel > Constants.SIGBYPASS_NONE,
-                    microgVendor);
-            final var configBytes = new Gson().toJson(config).getBytes(StandardCharsets.UTF_8);
-            final var metadata = Base64.getEncoder().encodeToString(configBytes);
-            try (var is = new ByteArrayInputStream(modifyManifestFile(manifestEntry.open(), metadata, minSdkVersion, pair.packageName, newPackage, originalSignature))) {
-                dstZFile.add(ANDROID_MANIFEST_XML, is);
-            } catch (Throwable e) {
-                throw new PatchError("Error when modifying manifest", e);
-            }
-
-            logger.i("Adding config...");
-            // save npatch config to asset..
-            try (var is = new ByteArrayInputStream(configBytes)) {
-                dstZFile.add(CONFIG_ASSET_PATH, is);
-            } catch (Throwable e) {
-                throw new PatchError("Error when saving config");
-            }
-
-            if (isInjectProvider){
-                try (var is = getClass().getClassLoader().getResourceAsStream("assets/mtprovider.dex")) {
-                    dstZFile.add("assets/npatch/mtprovider.dex", is);
-                } catch (Throwable e) {
-                    throw new PatchError("Error when adding dex", e);
-                }
-            }
-
-            // Manager mode controls module discovery, not bootstrap ownership. Keep every patched
-            // APK independently bootable so its process never needs to read another package's APK.
-            logger.i("Adding loader dex...");
-            try (var is = getClass().getClassLoader().getResourceAsStream(LOADER_DEX_ASSET_PATH)) {
-                if (is == null) {
-                    throw new PatchError("Fatal: Could not find " + LOADER_DEX_ASSET_PATH + " in the patcher resources!");
-                }
-                dstZFile.add(LOADER_DEX_ASSET_PATH, is);
-            } catch (Throwable e) {
-                throw new PatchError("Error when adding loader.bin", e);
-            }
-
-            logger.i("Adding native lib...");
-            for (String arch : ARCHES) {
-                String entryName = "assets/npatch/so/" + arch + "/libnpatch.so";
-                try (var is = getClass().getClassLoader().getResourceAsStream(entryName)) {
-                    if (is == null) {
-                        throw new PatchError("Fatal: Could not find " + entryName + " in the patcher resources!");
-                    }
-                    dstZFile.add(entryName, is, false);
-                    logger.d("added " + entryName);
-                } catch (Throwable e) {
-                    throw new PatchError("Error when adding native lib " + arch, e);
-                }
-            }
-
-            if (!useManager) {
-                logger.i("Embedding modules...");
-                embedModules(dstZFile);
-            }
-
-            // create zip link
-            logger.d("Creating nested apk link...");
-
-            int maxDexIndex = 0;
-            for (StoredEntry entry : srcZFile.entries()) {
-                String name = entry.getCentralDirectoryHeader().getName();
-                if (dstZFile.get(name) != null) continue;
-                if (embedOriginal && name.startsWith("classes") && name.endsWith(".dex")) continue;
-                if (name.equals("AndroidManifest.xml")) continue;
-                if (isApkSignatureEntry(name))
-                    continue;
-                maxDexIndex = Math.max(maxDexIndex, getDexIndex(name));
-
-                boolean linked = false;
-                if (srcZFile instanceof NestedZip) {
-                    try {
-                        linked = ((NestedZip) srcZFile).addFileLink(name, name);
-                    } catch (IOException e) {
-                        logger.e("Failed to link entry: " + name + ", falling back to copy.");
-                    }
-                }
-
-                if (!linked) {
-                    try (InputStream is = entry.open()) {
-                        if (name.endsWith(".so") || name.equals("resources.arsc")) {
-                            dstZFile.add(name, is, false);
-                        } else {
-                            dstZFile.add(name, is);
-                        }
-                    } catch (IOException e) {
-                        throw new PatchError("Failed to copy entry: " + name, e);
-                    }
-                }
-            }
-
-            logger.i("Adding metaloader dex...");
-            try (var is = getClass().getClassLoader().getResourceAsStream(Constants.META_LOADER_DEX_ASSET_PATH)) {
-                if (embedOriginal) {
-                    dstZFile.add("classes.dex", is);
                 } else {
-                    dstZFile.add("classes" + (maxDexIndex + 1) + ".dex", is);
+                    try (var xmlIs = srcZip.getInputStream(manifestEntry)) {
+                        manifestBytes = IOUtils.toByteArray(xmlIs);
+                    }
                 }
-            } catch (Throwable e) {
-                throw new PatchError("Error when adding dex", e);
-            }
 
-            dstZFile.realign();
-            logger.i("Writing apk...");
+                zipMaker.putNextEntry(ANDROID_MANIFEST_XML);
+                zipMaker.write(manifestBytes);
+                zipMaker.closeEntry();
+                addedEntries.add(ANDROID_MANIFEST_XML);
+
+                for (ZipEntry entry : srcZip.getEntries()) {
+                    String name = entry.getName();
+                    if (addedEntries.contains(name) || isApkSignatureEntry(name)) continue;
+                    if (name.equals(ANDROID_MANIFEST_XML)) continue;
+
+                    try {
+                        copyEntry(srcZip, zipMaker, entry);
+                    } catch (Throwable e) {
+                        throw new PatchError("Error when copying split entry: " + name, e);
+                    }
+                    addedEntries.add(name);
+                }
+            } else {
+                logger.i("Patching apk...");
+                String originalSignature = null;
+                if (sigbypassLevel > Constants.SIGBYPASS_NONE || useMicroG) {
+                    originalSignature = ApkSignatureHelper.getApkSignInfo(srcApkFile.getAbsolutePath());
+                    if (originalSignature == null || originalSignature.isEmpty()) {
+                        throw new PatchError("get original signature failed");
+                    }
+                    logger.d("Original signature\n" + originalSignature);
+                }
+
+                // modify manifest
+                final var config = new PatchConfig(
+                        useManager,
+                        debuggableFlag,
+                        overrideVersionCode,
+                        overrideVersionCodeValue,
+                        sigbypassLevel,
+                        originalSignature,
+                        appComponentFactory,
+                        isInjectProvider,
+                        outputLog && !disableOutputLog,
+                        newPackage,
+                        useMicroG,
+                        hideLibs && sigbypassLevel > Constants.SIGBYPASS_NONE,
+                        usesCleartextTraffic,
+                        overrideTargetSdk,
+                        overrideTargetSdkValue, microgVendor);
+                final var configBytes = new Gson().toJson(config).getBytes(StandardCharsets.UTF_8);
+                final var metadata = Base64.getEncoder().encodeToString(configBytes);
+
+                byte[] modifiedManifestBytes;
+                try (var xmlIs = srcZip.getInputStream(manifestEntry)) {
+                    modifiedManifestBytes = modifyManifestFile(xmlIs, metadata, minSdkVersion, pair.packageName, newPackage, originalSignature, entryHookMode);
+                } catch (Throwable e) {
+                    throw new PatchError("Error when modifying manifest", e);
+                }
+
+                zipMaker.putNextEntry(ANDROID_MANIFEST_XML);
+                zipMaker.write(modifiedManifestBytes);
+                zipMaker.closeEntry();
+                addedEntries.add(ANDROID_MANIFEST_XML);
+
+                logger.i("Adding config...");
+                zipMaker.putNextEntry(CONFIG_ASSET_PATH);
+                zipMaker.write(configBytes);
+                zipMaker.closeEntry();
+                addedEntries.add(CONFIG_ASSET_PATH);
+
+                if (isInjectProvider) {
+                    try (var is = getClass().getClassLoader().getResourceAsStream("assets/mtprovider.dex")) {
+                        if (is != null) {
+                            zipMaker.putNextEntry("assets/npatch/mtprovider.dex");
+                            zipMaker.writeFully(is);
+                            zipMaker.closeEntry();
+                            addedEntries.add("assets/npatch/mtprovider.dex");
+                        }
+                    } catch (Throwable e) {
+                        throw new PatchError("Error when adding dex", e);
+                    }
+                }
+
+                injectLoader(srcZip, zipMaker, addedEntries);
+
+                if (entryHookMode) {
+                    injectFactoryShim(zipMaker, addedEntries, appComponentFactory);
+                }
+
+                logger.i("Adding loader dex...");
+                try (var is = getClass().getClassLoader().getResourceAsStream(LOADER_DEX_ASSET_PATH)) {
+                    if (is == null) {
+                        throw new PatchError("Fatal: Could not find " + LOADER_DEX_ASSET_PATH + " in the patcher resources!");
+                    }
+                    zipMaker.putNextEntry(LOADER_DEX_ASSET_PATH);
+                    zipMaker.writeFully(is);
+                    zipMaker.closeEntry();
+                    addedEntries.add(LOADER_DEX_ASSET_PATH);
+                } catch (Throwable e) {
+                    throw new PatchError("Error when adding loader.bin", e);
+                }
+
+                logger.i("Adding native lib...");
+                for (String arch : ARCHES) {
+                    String entryName = "assets/npatch/so/" + arch + "/libnpatch.so";
+                    try (var is = getClass().getClassLoader().getResourceAsStream(entryName)) {
+                        if (is == null) {
+                            throw new PatchError("Fatal: Could not find " + entryName + " in the patcher resources!");
+                        }
+                        zipMaker.setMethod(ZipMaker.METHOD_STORED);
+                        zipMaker.putNextEntry(entryName);
+                        zipMaker.writeFully(is);
+                        zipMaker.closeEntry();
+                        zipMaker.setMethod(ZipMaker.METHOD_DEFLATED);
+                        addedEntries.add(entryName);
+                        logger.d("added " + entryName);
+                    } catch (Throwable e) {
+                        throw new PatchError("Error when adding native lib " + arch, e);
+                    }
+                }
+
+                if (!useManager) {
+                    embedModules(zipMaker, addedEntries);
+                }
+
+                logger.d("Creating nested apk link...");
+                ZipMaker.HostEntryHolder hostEntryHolder = null;
+                if (embedOriginal) {
+                    hostEntryHolder = zipMaker.putNextHostEntry(ORIGINAL_APK_ASSET_PATH, srcZip);
+                    addedEntries.add(ORIGINAL_APK_ASSET_PATH);
+                }
+
+                for (ZipEntry entry : srcZip.getEntries()) {
+                    String name = entry.getName();
+                    if (addedEntries.contains(name) || isApkSignatureEntry(name)) continue;
+                    if (!injectDex && isDexEntry(name)) continue;
+                    if (name.equals(ANDROID_MANIFEST_XML)) continue;
+
+                    boolean linked = false;
+                    if (hostEntryHolder != null) {
+                        try {
+                            hostEntryHolder.putNextVirtualEntry(name);
+                            linked = true;
+                        } catch (IOException e) {
+                            logger.e("Failed to link entry: " + name + ", falling back to copy.");
+                        }
+                    }
+
+                    if (!linked) {
+                        try {
+                            copyEntry(srcZip, zipMaker, entry);
+                        } catch (Throwable e) {
+                            throw new PatchError("Error when copying entry: " + name, e);
+                        }
+                    }
+                    addedEntries.add(name);
+                }
+            }
+        } catch (PatchError e) {
+            throw e;
+        } catch (Throwable e) {
+            throw new PatchError("Error when building apk", e);
         }
+
+        logger.i("Signing output APK with V2 + V3...");
+        try {
+            V2V3SchemeSigner.sign(outputFile, signatureKey, true, true);
+        } catch (Exception e) {
+            throw new PatchError("Failed to sign output apk", e);
+        }
+
         logger.i("Done. Output APK: " + outputFile.getAbsolutePath());
     }
 
-    private static int getDexIndex(String name) {
-        if (name == null) {
-            return 0;
+    private void injectLoader(ZipFile srcZip, ZipMaker zipMaker, Set<String> addedEntries) throws IOException {
+        logger.i("Adding metaloader dex...");
+        try (var is = getClass().getClassLoader().getResourceAsStream(Constants.META_LOADER_DEX_ASSET_PATH)) {
+            if (is == null) {
+                throw new PatchError("The metaloader dex is missing from this build");
+            }
+            if (!injectDex) {
+                zipMaker.putNextEntry("classes.dex");
+                zipMaker.writeFully(is);
+                zipMaker.closeEntry();
+                addedEntries.add("classes.dex");
+                logger.i("Metaloader dex injected as classes.dex");
+            } else {
+                int maxDexIndex = 0;
+                for (ZipEntry entry : srcZip.getEntries()) {
+                    int idx = getDexIndex(entry.getName());
+                    if (idx > maxDexIndex) {
+                        maxDexIndex = idx;
+                    }
+                }
+                int nextIdx = Math.max(1, maxDexIndex) + 1;
+                String metaDexName = "classes" + nextIdx + ".dex";
+                zipMaker.putNextEntry(metaDexName);
+                zipMaker.writeFully(is);
+                zipMaker.closeEntry();
+                addedEntries.add(metaDexName);
+                logger.i("Metaloader dex injected as " + metaDexName);
+            }
+        } catch (PatchError e) {
+            throw e;
+        } catch (Throwable e) {
+            throw new PatchError("Error when adding metaloader dex", e);
         }
-        Matcher matcher = DEX_NAME_PATTERN.matcher(name);
-        if (!matcher.matches()) {
-            return 0;
+    }
+
+    /**
+     * Injects the entry-hook shim: a minimal dex declaring {@code hostFactory} with our stub as its
+     * superclass. It must sit at the next contiguous {@code classesN.dex} index after the metaloader
+     * dex (which {@link #injectLoader} has just added), so the framework's sequential multidex
+     * enumeration actually loads it -- a gap would leave the shim unloaded and the host-named
+     * factory unresolvable at startup.
+     */
+    private void injectFactoryShim(ZipMaker zipMaker, Set<String> addedEntries, String hostFactory) {
+        int maxDexIndex = 0;
+        for (String name : addedEntries) {
+            maxDexIndex = Math.max(maxDexIndex, getDexIndex(name));
         }
-        String group = matcher.group(1);
-        if (group == null || group.isEmpty()) {
-            return 1;
-        }
+        String shimName = "classes" + (maxDexIndex + 1) + ".dex";
         try {
-            return Integer.parseInt(group);
-        } catch (NumberFormatException ignored) {
-            return 0;
+            byte[] shim = DexShimBuilder.buildFactoryShim(hostFactory, PROXY_APP_COMPONENT_FACTORY);
+            zipMaker.putNextEntry(shimName);
+            zipMaker.write(shim);
+            zipMaker.closeEntry();
+            addedEntries.add(shimName);
+            logger.i("Entry-hook: kept host appComponentFactory '" + hostFactory
+                    + "', shim injected as " + shimName);
+        } catch (Throwable e) {
+            throw new PatchError("Error when adding factory shim dex", e);
         }
+    }
+
+    /** Copies an entry, re-storing native libs and resources.arsc uncompressed so they stay mmap-able. */
+    private static void copyEntry(ZipFile srcZip, ZipMaker zipMaker, ZipEntry entry) throws IOException {
+        String name = entry.getName();
+        boolean mustBeStored = name.endsWith(".so") || name.equals("resources.arsc");
+        if (!mustBeStored || entry.getMethod() == ZipConstant.METHOD_STORED) {
+            zipMaker.copyZipEntry(entry, srcZip);
+            return;
+        }
+        zipMaker.setMethod(ZipMaker.METHOD_STORED);
+        try (InputStream is = srcZip.getInputStream(entry)) {
+            zipMaker.putNextEntry(name);
+            zipMaker.writeFully(is);
+            zipMaker.closeEntry();
+        } finally {
+            zipMaker.setMethod(ZipMaker.METHOD_DEFLATED);
+        }
+    }
+
+    private static boolean isDexEntry(String name) {
+        return name != null && name.startsWith("classes") && name.endsWith(".dex");
     }
 
     private static boolean isApkSignatureEntry(String name) {
@@ -545,45 +689,90 @@ public class NPatch {
                 && APK_SIGNATURE_EXTENSIONS.contains(fileName.substring(extensionStart));
     }
 
-    private void embedModules(ZFile zFile) {
-        for (var module : modules) {
-            File file = new File(module);
-            try (var apk = ZFile.openReadOnly(new File(module));
+    private static int getDexIndex(String name) {
+        if (name == null) {
+            return 0;
+        }
+        Matcher matcher = DEX_NAME_PATTERN.matcher(name);
+        if (!matcher.matches()) {
+            return 0;
+        }
+        String group = matcher.group(1);
+        if (group == null || group.isEmpty()) {
+            return 1;
+        }
+        try {
+            return Integer.parseInt(group);
+        } catch (NumberFormatException ignored) {
+            return 0;
+        }
+    }
+
+    private void embedModules(ZipMaker zipMaker, Set<String> addedEntries) {
+        if (modules.isEmpty()) return;
+        logger.i("Embedding modules...");
+        Set<String> embedded = new LinkedHashSet<>();
+        for (var LoadedModule : modules) {
+            File file = new File(LoadedModule);
+            try (var apk = new ZipFile(file);
                  var fileIs = new FileInputStream(file)) {
 
-                var manifestEntry = apk.get(ANDROID_MANIFEST_XML);
-                if (manifestEntry == null) throw new IOException("Manifest not found in module");
+                var manifestEntry = apk.getEntry(ANDROID_MANIFEST_XML);
+                if (manifestEntry == null) throw new IOException("Manifest not found in LoadedModule");
 
-                try (var xmlIs = manifestEntry.open()) {
+                try (var xmlIs = apk.getInputStream(manifestEntry)) {
                     var manifest = Objects.requireNonNull(ManifestParser.parseManifestFile(xmlIs));
                     var packageName = manifest.packageName;
+                    if (!embedded.add(packageName)) {
+                        logger.e("  - " + packageName + " given more than once, keeping the first");
+                        continue;
+                    }
                     logger.i("  - " + packageName);
-                    zFile.add(EMBEDDED_MODULES_ASSET_PATH + packageName + ".apk", fileIs);
+                    String entryName = EMBEDDED_MODULES_ASSET_PATH + packageName + ".apk";
+                    zipMaker.putNextEntry(entryName);
+                    zipMaker.writeFully(fileIs);
+                    zipMaker.closeEntry();
+                    addedEntries.add(entryName);
                 }
             } catch (Exception e) {
-                logger.e(module + " does not exist or is not a valid apk file. error:" + e);
+                logger.e(LoadedModule + " does not exist or is not a valid apk file. error:" + e);
             }
         }
     }
 
-    private void registerBuiltinSigner(KeyStore keyStore, ZFile dstZFile, String keystoreResource, String passwordToken, String aliasToken) throws Exception {
+    private SignatureKey loadBuiltinKey(KeyStore keyStore, String keystoreResource, String passwordToken, String aliasToken) throws Exception {
         var password = decodeSecretChars(passwordToken);
         try {
             try (var is = getClass().getClassLoader().getResourceAsStream(keystoreResource)) {
+                if (is == null) {
+                    throw new IOException("Built-in keystore not found: " + keystoreResource);
+                }
                 keyStore.load(is, password);
             }
 
             var alias = decodeSecretString(aliasToken);
             var entry = (KeyStore.PrivateKeyEntry) keyStore.getEntry(alias, new KeyStore.PasswordProtection(password));
-            new SigningExtension(SigningOptions.builder()
-                    .setMinSdkVersion(27)
-                    .setV2SigningEnabled(true)
-                    .setCertificates((X509Certificate[]) entry.getCertificateChain())
-                    .setKey(entry.getPrivateKey())
-                    .build()).register(dstZFile);
+            return new GenericSignatureKey(entry.getPrivateKey(), (X509Certificate[]) entry.getCertificateChain());
         } finally {
             Arrays.fill(password, '\0');
         }
+    }
+
+    private SignatureKey loadCustomKey(List<String> args) throws Exception {
+        var keyStore = KeyStore.getInstance(customKeystoreType(args.get(0)));
+        try (var is = new FileInputStream(args.get(0))) {
+            keyStore.load(is, args.get(1).toCharArray());
+        }
+        var entry = (KeyStore.PrivateKeyEntry) keyStore.getEntry(args.get(2), new KeyStore.PasswordProtection(args.get(3).toCharArray()));
+        return new GenericSignatureKey(entry.getPrivateKey(), (X509Certificate[]) entry.getCertificateChain());
+    }
+
+    private String customKeystoreType(String path) {
+        if (keystoreType != null && !keystoreType.isEmpty()) return keystoreType;
+        String lowerPath = path.toLowerCase(Locale.ROOT);
+        if (lowerPath.endsWith(".bks")) return "BKS";
+        if (lowerPath.endsWith(".p12") || lowerPath.endsWith(".pfx")) return "PKCS12";
+        return "JKS";
     }
 
     private static char[] decodeSecretChars(String token) {
@@ -633,7 +822,7 @@ public class NPatch {
         return out;
     }
 
-    private byte[] modifyManifestFile(InputStream is, String metadata, int minSdkVersion, String originPackage, String newPackage, String originalSignature) throws IOException {
+    private byte[] modifyManifestFile(InputStream is, String metadata, int minSdkVersion, String originPackage, String newPackage, String originalSignature, boolean entryHookMode) throws IOException {
         ModificationProperty property = new ModificationProperty();
 
         String targetPackage = (newPackage != null && !newPackage.isEmpty()) ? newPackage : originPackage;
@@ -642,13 +831,30 @@ public class NPatch {
             property.addManifestAttribute(new AttributeItem(NodeValue.Manifest.VERSION_CODE, overrideVersionCodeValue));
         }
 
-        if (minSdkVersion > 0)
-            property.addUsesSdkAttribute(new AttributeItem(NodeValue.UsesSDK.MIN_SDK_VERSION, minSdkVersion));
-        else
-            property.addUsesSdkAttribute(new AttributeItem(NodeValue.UsesSDK.MIN_SDK_VERSION, 27));
+        if (overrideTargetSdk) {
+            property.addUsesSdkAttribute(new AttributeItem(NodeValue.UsesSDK.TARGET_SDK_VERSION, overrideTargetSdkValue));
+        }
+
+        if (minSdkVersion < 28) {
+            property.addUsesSdkAttribute(new AttributeItem(NodeValue.UsesSDK.MIN_SDK_VERSION, 28));
+        }
         property.addApplicationAttribute(new AttributeItem(NodeValue.Application.DEBUGGABLE, debuggableFlag));
-        property.addApplicationAttribute(new AttributeItem("appComponentFactory", PROXY_APP_COMPONENT_FACTORY));
-        property.addApplicationAttribute(new AttributeItem("isSplitRequired", false));
+        if (!entryHookMode) {
+            property.addApplicationAttribute(new AttributeItem("appComponentFactory", PROXY_APP_COMPONENT_FACTORY));
+        }
+        if (usesCleartextTraffic) {
+            property.addApplicationAttribute(new AttributeItem("usesCleartextTraffic", Boolean.TRUE));
+        }
+
+        if (labelOverride != null && !labelOverride.trim().isEmpty()) {
+            logger.i("Override label: " + labelOverride.trim());
+            property.addApplicationAttribute(new AttributeItem(NodeValue.Application.LABEL, labelOverride.trim()));
+        }
+
+        if (extractNativeLibs) {
+            logger.i("Override extractNativeLibs: true");
+            property.addApplicationAttribute(new AttributeItem(NodeValue.Application.EXTRACTNATIVELIBS, Boolean.TRUE));
+        }
 
         if (!targetPackage.equals(originPackage)) {
             property.addManifestAttribute(new AttributeItem(NodeValue.Manifest.PACKAGE, targetPackage).setNamespace(null));
@@ -657,7 +863,7 @@ public class NPatch {
 
         if (!modules.isEmpty()) {
             addOrReplaceMetaData(property, "xposedmodule", "true");
-            addOrReplaceMetaData(property, "xposeddescription", "NPatch Embed Module");
+            addOrReplaceMetaData(property, "xposeddescription", "NPatch Embed LoadedModule");
             addOrReplaceMetaData(property, "xposedminversion", "93");
         }
 
@@ -692,26 +898,23 @@ public class NPatch {
         // 處理注入 Provider 的邏輯
         if (isInjectProvider){
             String injectedAuthority = targetPackage + ".MTDataFilesProvider";
-            HashMap<String,String> providerMap = new HashMap<>();
-            providerMap.put("name","bin.mt.file.content.MTDataFilesProvider");
-            providerMap.put("permission","android.permission.MANAGE_DOCUMENTS");
-            providerMap.put("exported","true");
-            providerMap.put("authorities", injectedAuthority);
-            providerMap.put("grantUriPermissions","true");
+            List<AttributeItem> providerAttrs = new ArrayList<>();
+            providerAttrs.add(new AttributeItem("name", "bin.mt.file.content.MTDataFilesProvider"));
+            providerAttrs.add(new AttributeItem("permission", "android.permission.MANAGE_DOCUMENTS"));
+            providerAttrs.add(new AttributeItem("exported", Boolean.TRUE));
+            providerAttrs.add(new AttributeItem("authorities", injectedAuthority));
+            providerAttrs.add(new AttributeItem("grantUriPermissions", Boolean.TRUE));
 
             property.addDeleteProviderAuthorities(injectedAuthority);
-            property.addProvider(providerMap,"android.content.action.DOCUMENTS_PROVIDER");
-
+            property.addProvider(providerAttrs, "android.content.action.DOCUMENTS_PROVIDER");
         }
 
-        byte[] modified;
         try (ByteArrayOutputStream os = new ByteArrayOutputStream()) {
             new ManifestEditor(is, os, property).processManifest();
-            modified = os.toByteArray();
+            return rewriteC2dmManifest(os.toByteArray());
         } finally {
             if (is != null) is.close();
         }
-        return rewriteC2dmManifest(modified);
     }
 
     /**

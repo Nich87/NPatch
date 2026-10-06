@@ -12,9 +12,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
  */
 enum class MainTab(
     @param:StringRes val labelRes: Int,
-    val selectedIcon: ImageVector,
-    val unselectedIcon: ImageVector
+    val icon: ImageVector,
 ) {
-    Home(R.string.screen_home, Icons.Rounded.Home, Icons.Rounded.Home),
-    Settings(R.string.screen_settings, Icons.Rounded.Settings, Icons.Rounded.Settings)
+    Home(R.string.screen_home, Icons.Rounded.Home),
+    Settings(R.string.screen_settings, Icons.Rounded.Settings)
 }

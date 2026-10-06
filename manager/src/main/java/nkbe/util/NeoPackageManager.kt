@@ -1,7 +1,6 @@
 package nkbe.util
 
 import android.R
-import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInstaller
@@ -9,6 +8,8 @@ import android.content.pm.PackageInstallerHidden.SessionParamsHidden
 import android.content.pm.PackageManager
 import android.content.pm.PackageManagerHidden
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.AdaptiveIconDrawable
 import android.net.Uri
 import android.os.Parcelable
 import android.util.Log
@@ -25,7 +26,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
-import me.zhanghai.android.appiconloader.AppIconLoader
 import top.nkbe.npatch.config.ConfigManager
 import top.nkbe.npatch.config.Configs
 import top.nkbe.npatch.install.ApkInstallSet
@@ -80,8 +80,6 @@ object NeoPackageManager {
         appList = emptyList()
     }
 
-    @SuppressLint("StaticFieldLeak")
-    private val iconLoader = AppIconLoader(lspApp.resources.getDimensionPixelSize(R.dimen.app_icon_size), false, lspApp)
     private val appIcon = Collections.synchronizedMap(mutableMapOf<String, ImageBitmap>())
 
     /**
@@ -147,7 +145,20 @@ object NeoPackageManager {
         }
 
     private fun loadIconBitmap(appInfo: ApplicationInfo): ImageBitmap =
-        runCatching { iconLoader.loadIcon(appInfo).asImageBitmap() }.getOrElse {
+        runCatching {
+            val size = lspApp.resources.getDimensionPixelSize(R.dimen.app_icon_size)
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            val icon = appInfo.loadIcon(lspApp.packageManager)
+            icon.setBounds(0, 0, size, size)
+            if (icon is AdaptiveIconDrawable) {
+                icon.background?.draw(canvas)
+                icon.foreground?.draw(canvas)
+            } else {
+                icon.draw(canvas)
+            }
+            bitmap.asImageBitmap()
+        }.getOrElse {
             Log.w(TAG, "Failed to load icon for ${appInfo.packageName}", it)
             Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).asImageBitmap()
         }

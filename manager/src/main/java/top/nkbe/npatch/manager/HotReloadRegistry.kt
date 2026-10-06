@@ -8,12 +8,17 @@ import io.github.libxposed.service.HookedProcess
 import io.github.libxposed.service.IHotReloadCallback
 import io.github.libxposed.service.IXposedService
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.runBlocking
-import org.lsposed.lspd.models.Module
-import org.lsposed.lspd.service.IHotReloadTarget
+import org.matrix.vector.ipc.HotReloadOutcome
+import org.matrix.vector.ipc.IHotReloadOutcomeReceiver
+import org.matrix.vector.ipc.LoadedModule
+import org.matrix.vector.ipc.IProcessChannel
 import top.nkbe.npatch.config.ConfigManager
 
 /**
@@ -32,7 +37,7 @@ object HotReloadRegistry {
         @Volatile var processName: String,
     ) {
         val targetsByModule = ConcurrentHashMap<String, Long>()
-        @Volatile var binder: IHotReloadTarget? = null
+        @Volatile var binder: IProcessChannel? = null
         @Volatile var deathRecipient: IBinder.DeathRecipient? = null
     }
 
@@ -57,7 +62,7 @@ object HotReloadRegistry {
         uid: Int,
         pid: Int,
         processName: String,
-        modules: List<Module>,
+        modules: List<LoadedModule>,
     ) {
         val key = ProcessKey(uid, pid)
         val process = processes.compute(key) { _, current ->
@@ -75,9 +80,9 @@ object HotReloadRegistry {
                         modulePackageName = module.packageName,
                         loadedVersionCode = module.versionCode,
                         hotReloadable =
-                            (module.file?.targetApiVersion ?: 0) >= IXposedService.API_102 &&
-                                module.file?.moduleClassNames?.size == 1 &&
-                                module.file?.moduleLibraryNames?.isEmpty() == true,
+                            (module.code?.targetApiVersion ?: 0) >= IXposedService.API_102 &&
+                                module.code?.moduleClassNames?.size == 1 &&
+                                module.code?.moduleLibraryNames?.isEmpty() == true,
                     )
                 id
             }
@@ -93,7 +98,7 @@ object HotReloadRegistry {
         uid: Int,
         pid: Int,
         processName: String,
-        target: IHotReloadTarget,
+        target: IProcessChannel,
     ) {
         val key = ProcessKey(uid, pid)
         val process = processes.computeIfAbsent(key) { ProcessRecord(key, processName) }
@@ -138,8 +143,8 @@ object HotReloadRegistry {
             .toList()
     }
 
-    fun autoHotReload(module: Module) {
-        if (module.file?.autoHotReload != true || module.versionCode == 0L) return
+    fun autoHotReload(module: LoadedModule) {
+        if (module.code?.autoHotReload != true || module.versionCode == 0L) return
         targets.values
             .asSequence()
             .filter {
@@ -217,9 +222,26 @@ object HotReloadRegistry {
                 message = "No installed generation of ${target.modulePackageName} to load"
                 return
             }
-            val outcome = binder.hotReload(target.modulePackageName, extras, module)
+            val result = AtomicReference<HotReloadOutcome?>()
+            val received = CountDownLatch(1)
+            binder.hotReload(
+                target.modulePackageName,
+                extras,
+                module,
+                object : IHotReloadOutcomeReceiver.Stub() {
+                    override fun onOutcome(outcome: HotReloadOutcome) {
+                        if (result.compareAndSet(null, outcome)) received.countDown()
+                    }
+                },
+            )
+            if (!received.await(30, TimeUnit.SECONDS)) {
+                status = IXposedService.HOT_RELOAD_FAILED
+                message = "Hot reload timed out"
+                return
+            }
+            val outcome = checkNotNull(result.get())
             status = outcome.status
-            if (status == IXposedService.HOT_RELOAD_SUCCEEDED) {
+            if (outcome.generationChanged || status == IXposedService.HOT_RELOAD_SUCCEEDED) {
                 loadedVersion = module.versionCode
             }
             message =

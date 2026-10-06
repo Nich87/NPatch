@@ -37,7 +37,7 @@ object ConfigManager {
     private val scopeDao get() = db.scopeDao()
 
     private val loadedModules =
-        ConcurrentHashMap<String, org.lsposed.lspd.models.Module>()
+        ConcurrentHashMap<String, org.matrix.vector.ipc.LoadedModule>()
     private val moduleLoadLocks = ConcurrentHashMap<String, Mutex>()
 
     suspend fun updateModules(newModules: Map<String, String>) {
@@ -102,17 +102,17 @@ object ConfigManager {
             loadedModules.keys.toList().forEach(::removeCachedModule)
         }
 
-    suspend fun getModuleFilesForApp(pkgName: String): List<org.lsposed.lspd.models.Module> =
+    suspend fun getModuleFilesForApp(pkgName: String): List<org.matrix.vector.ipc.LoadedModule> =
         withContext(readDispatcher) {
             val modules = scopeDao.getModulesForApp(pkgName)
-            val result = ArrayList<org.lsposed.lspd.models.Module>(modules.size)
+            val result = ArrayList<org.matrix.vector.ipc.LoadedModule>(modules.size)
             for (module in modules) {
                 loadModule(module, useCache = true)?.let(result::add)
             }
             return@withContext result
         }
 
-    suspend fun getModuleFile(pkgName: String): org.lsposed.lspd.models.Module? =
+    suspend fun getModuleFile(pkgName: String): org.matrix.vector.ipc.LoadedModule? =
         withContext(readDispatcher) {
             val module = moduleDao.getModule(pkgName) ?: return@withContext null
             loadModule(module, useCache = false)
@@ -128,7 +128,7 @@ object ConfigManager {
     private suspend fun loadModule(
         module: Module,
         useCache: Boolean,
-    ): org.lsposed.lspd.models.Module? {
+    ): org.matrix.vector.ipc.LoadedModule? {
         val mutex = moduleLoadLocks.computeIfAbsent(module.pkgName) { Mutex() }
         mutex.lock()
         try {
@@ -157,7 +157,7 @@ object ConfigManager {
                         )
                     }
                     .getOrNull()
-            val preLoadedApk =
+            val moduleCode =
                 ModuleLoader.loadModule(
                     module.apkPath,
                     readLegacyMinApiVersion(appInfo),
@@ -168,10 +168,10 @@ object ConfigManager {
                     }
                     .getOrDefault(0L)
             val loaded =
-                org.lsposed.lspd.models.Module().apply {
+                org.matrix.vector.ipc.LoadedModule().apply {
                     packageName = module.pkgName
                     apkPath = module.apkPath
-                    file = preLoadedApk
+                    code = moduleCode.code
                     applicationInfo = appInfo
                     appId = appInfo?.uid ?: -1
                     this.versionCode = versionCode
