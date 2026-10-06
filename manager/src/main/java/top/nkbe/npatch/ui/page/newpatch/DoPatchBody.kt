@@ -184,7 +184,7 @@ fun DoPatchBody(modifier: Modifier, navigator: Navigator) {
         }
 
         // ── ログ出力エリア ──
-        SmallTitle(text = "Log")
+        SmallTitle(text = stringResource(R.string.patch_log))
         GlassCard(
             modifier = Modifier
                 .fillMaxWidth()

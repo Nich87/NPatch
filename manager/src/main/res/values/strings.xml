@@ -152,6 +152,7 @@
     <string name="patch_hide_libs_desc">Sanitize ART and sensitive system library visibility for apps that perform basic runtime environment checks.</string>
     <string name="patch_start">Start Patch</string>
     <string name="patch_return">Return</string>
+    <string name="patch_log">Log</string>
     <string name="patch_uninstall_text">Due to different signatures, you need to uninstall the original app before installing the patched one.\nMake sure you have backed up personal data.</string>
     <string name="patch_install_successfully">Install successfully</string>
     <string name="patch_install_failed">Install failed</string>
@@ -210,7 +211,7 @@
     <!-- Settings Screen -->
     <string name="screen_settings">Settings</string>
     <string name="settings_language">Language</string>
-    <string name="settings_language_system" translatable="false">Follow System</string>
+    <string name="settings_language_system">Follow System</string>
     <string name="settings_keystore">Signature keystore</string>
     <string name="settings_keystore_custom">Custom</string>
     <string name="settings_keystore_dialog_title">Custom keystore</string>
@@ -224,6 +225,7 @@
     <string name="settings_keystore_wrong_alias">Wrong alias name</string>
     <string name="settings_keystore_wrong_alias_password">Wrong alias password</string>
     <string name="settings_storage_directory">change storage directory</string>
+    <string name="settings_storage_directory_not_set">no path set</string>
     <string name="settings_detail_patch_logs">Detail patch logs</string>
     <string name="settings_output_full_log">Output manager log to media</string>
     <string name="settings_output_full_log_summary">Write manager logs to Android/media/top.nkbe.npatch/log for debugging</string>
