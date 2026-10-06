@@ -1,6 +1,13 @@
 package top.nkbe.npatch.ui.component
 
+import android.text.Spannable
+import android.text.SpannableStringBuilder
+import android.text.method.LinkMovementMethod
+import android.text.style.ClickableSpan
+import android.text.util.Linkify
 import android.widget.TextView
+import androidx.core.text.util.LinkifyCompat
+import androidx.core.util.PatternsCompat
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -16,9 +23,26 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import io.noties.markwon.AbstractMarkwonPlugin
 import io.noties.markwon.Markwon
 import io.noties.markwon.core.MarkwonTheme
+import io.noties.markwon.core.spans.CodeBlockSpan
+import io.noties.markwon.core.spans.CodeSpan
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin
 import io.noties.markwon.ext.tables.TablePlugin
 import io.noties.markwon.ext.tasklist.TaskListPlugin
+import java.util.regex.Pattern
+
+private val githubMention = Pattern.compile("(?<![\\w@./])@([A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)(?![\\w-])")
+
+private fun linkifyReleaseNotes(text: Spannable) {
+    val unlinkedText = Linkify.MatchFilter { _, start, end ->
+        text.getSpans(start, end, ClickableSpan::class.java).isEmpty() &&
+            text.getSpans(start, end, CodeSpan::class.java).isEmpty() &&
+            text.getSpans(start, end, CodeBlockSpan::class.java).isEmpty()
+    }
+    LinkifyCompat.addLinks(text, PatternsCompat.AUTOLINK_WEB_URL, "https://", arrayOf("http://", "https://", "rtsp://"),
+        { content, start, end -> Linkify.sUrlMatchFilter.acceptMatch(content, start, end) && unlinkedText.acceptMatch(content, start, end) }, null)
+    LinkifyCompat.addLinks(text, githubMention, "https://github.com/", null, unlinkedText,
+        { match, _ -> match.group(1).orEmpty() })
+}
 
 /** Parse GitHub release Markdown into native text spans; no WebView or remote assets needed. */
 @Composable
@@ -52,7 +76,9 @@ internal fun ReleaseNotesMarkdown(markdown: String, modifier: Modifier = Modifie
             })
             .build()
     }
-    val rendered = remember(markwon, markdown) { markwon.toMarkdown(markdown) }
+    val rendered = remember(markwon, markdown) {
+        SpannableStringBuilder(markwon.toMarkdown(markdown)).apply { linkifyReleaseNotes(this) }
+    }
     AndroidView(
         factory = { TextView(it).apply {
             textSize = 16f
@@ -61,6 +87,8 @@ internal fun ReleaseNotesMarkdown(markdown: String, modifier: Modifier = Modifie
         } },
         update = { view ->
             view.setTextColor(foreground)
+            view.setLinkTextColor(accent)
+            view.movementMethod = LinkMovementMethod.getInstance()
             if (view.tag !== rendered) {
                 markwon.setParsedMarkdown(view, rendered)
                 view.tag = rendered

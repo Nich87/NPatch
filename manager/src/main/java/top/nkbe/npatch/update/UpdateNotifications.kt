@@ -34,8 +34,18 @@ object UpdateNotifications {
 
     fun dismiss(context: Context) = NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
 
+    fun dismissIfInstalled(context: Context) {
+        val version = context.getSharedPreferences("app_updates", Context.MODE_PRIVATE)
+            .getString("notified_version", null) ?: return
+        if (UpdatePolicy.compare(version, BuildConfig.VERSION_NAME)?.let { it <= 0 } == true) dismiss(context)
+    }
+
     @Suppress("MissingPermission") // allowed() checks the runtime permission and channel before posting.
     fun notify(context: Context, release: UpdateRelease) {
+        if (UpdatePolicy.compare(release.version, BuildConfig.VERSION_NAME)?.let { it <= 0 } == true) {
+            dismiss(context)
+            return
+        }
         ensureChannel(context)
         if (!allowed(context)) return
         val preferences = context.getSharedPreferences("app_updates", Context.MODE_PRIVATE)

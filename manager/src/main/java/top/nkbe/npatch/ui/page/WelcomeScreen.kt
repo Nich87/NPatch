@@ -570,7 +570,7 @@ private fun WelcomeBottomBar(
         Spacer(Modifier.weight(1f))
         Button(
             onClick = onNext,
-            enabled = page != 1 || permissionsReady,
+            enabled = reviewMode || page != 1 || permissionsReady,
             colors = ButtonDefaults.buttonColorsPrimary(),
             insideMargin = PaddingValues(horizontal = 22.dp, vertical = 13.dp)
         ) {
