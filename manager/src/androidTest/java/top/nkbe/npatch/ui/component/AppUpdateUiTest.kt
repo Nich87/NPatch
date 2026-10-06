@@ -87,6 +87,27 @@ class AppUpdateUiTest {
         compose.onNodeWithText("Regression release notes").assertIsDisplayed()
         compose.onNodeWithText(compose.activity.getString(R.string.app_update_download)).assertDoesNotExist()
     }
+
+    @Test fun currentVersionRemovesHomeNoticeButCheckingAndErrorsStayVisible() {
+        var state by mutableStateOf(UpdateState(release = release))
+        compose.setContent {
+            LSPTheme(isDarkTheme = true) {
+                AppUpdateStatusCard(state, onOpen = {}, onCheck = {})
+            }
+        }
+        compose.onNodeWithText(compose.activity.getString(R.string.app_update_open)).assertIsDisplayed()
+
+        compose.runOnIdle {
+            state = UpdateState(upToDate = true, message = compose.activity.getString(R.string.app_update_current))
+        }
+        compose.onNodeWithText(compose.activity.getString(R.string.app_update_current)).assertDoesNotExist()
+        compose.onNodeWithText(compose.activity.getString(R.string.app_update_open)).assertDoesNotExist()
+
+        compose.runOnIdle { state = state.copy(checking = true) }
+        compose.onNodeWithText(compose.activity.getString(R.string.app_update_checking)).assertIsDisplayed()
+        compose.runOnIdle { state = UpdateState(message = "Check failed") }
+        compose.onNodeWithText("Check failed").assertIsDisplayed()
+    }
     private fun findTextView(view: android.view.View): android.widget.TextView? {
         if (view is android.widget.TextView) return view
         if (view is android.view.ViewGroup) {

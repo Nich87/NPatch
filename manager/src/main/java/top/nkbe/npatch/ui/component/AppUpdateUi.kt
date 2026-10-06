@@ -136,18 +136,19 @@ fun AppUpdateCard(modifier: Modifier = Modifier) {
 internal fun AppUpdateStatusCard(state: UpdateState, modifier: Modifier = Modifier, onOpen: () -> Unit, onCheck: () -> Unit) {
     val colors = MiuixTheme.colorScheme
     val busy = state.checking || state.downloading || state.installing
+    if (state.upToDate && !busy && state.release == null && state.file == null) return
     val title = when {
         state.downloading -> stringResource(R.string.app_update_downloading, state.progress ?: 0)
         state.installing -> stringResource(R.string.app_update_installing)
         state.checking -> stringResource(R.string.app_update_checking)
         state.file != null -> stringResource(R.string.app_update_ready_title)
-        state.release != null -> stringResource(R.string.app_update_available, state.release!!.version)
+        state.release != null -> stringResource(R.string.app_update_available, state.release.version)
         state.upToDate -> stringResource(R.string.app_update_current)
         state.message != null -> stringResource(R.string.app_update_attention)
         else -> stringResource(R.string.app_update_check)
     }
     val summary = when {
-        state.message != null -> state.message!!
+        state.message != null -> state.message
         state.file != null -> stringResource(R.string.app_update_ready)
         state.release != null && !busy -> stringResource(R.string.app_update_open)
         else -> stringResource(R.string.app_update_installed, BuildConfig.VERSION_NAME)
