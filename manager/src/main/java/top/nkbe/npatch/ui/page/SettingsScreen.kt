@@ -631,7 +631,7 @@ fun StorageDirectory() {
     }
     ArrowPreference(
         title = stringResource(R.string.settings_storage_directory),
-        summary = Configs.storageDirectory ?: "no path set",
+        summary = Configs.storageDirectory ?: stringResource(R.string.settings_storage_directory_not_set),
         startAction = {
             SettingsStartIcon(Icons.Outlined.Folder)
         },
@@ -822,4 +822,3 @@ private fun ProxyCachePreference() {
         }
     }
 }
-
