@@ -59,22 +59,22 @@ import top.nkbe.npatch.ui.component.NPatchScaffold
 import top.nkbe.npatch.ui.component.AppUpdatePreferences
 import top.nkbe.npatch.ui.util.LocalSnackbarHost
 import top.nkbe.npatch.util.LINE_PACKAGE_NAME
-import io.github.suqi8.coui.kmp.basic.ButtonDefaults
-import io.github.suqi8.coui.kmp.basic.COUIScrollBehavior
-import io.github.suqi8.coui.kmp.basic.Icon
-import io.github.suqi8.coui.kmp.basic.SmallTitle
-import io.github.suqi8.coui.kmp.basic.Text
-import io.github.suqi8.coui.kmp.basic.TextButton
-import io.github.suqi8.coui.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.basic.TextField
 import top.nkbe.npatch.ui.component.NPatchTopAppBar
 import top.nkbe.npatch.ui.component.GlassCard
 import top.nkbe.npatch.ui.component.GlassDialog
-import io.github.suqi8.coui.kmp.preference.ArrowPreference
-import io.github.suqi8.coui.kmp.preference.OverlayDropdownPreference
-import io.github.suqi8.coui.kmp.preference.SwitchPreference
-import io.github.suqi8.coui.kmp.theme.COUITheme
-import io.github.suqi8.coui.kmp.utils.overScrollVertical
-import io.github.suqi8.coui.kmp.utils.scrollEndHaptic
+import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.KeyStore
@@ -92,7 +92,7 @@ private data class InstalledModule(
 
 @Composable
 fun SettingsScreen() {
-    val scrollBehavior = COUIScrollBehavior()
+    val scrollBehavior = MiuixScrollBehavior()
     NPatchScaffold(
         topBar = {
             NPatchTopAppBar(
@@ -190,8 +190,8 @@ private fun ModuleSettings() {
         // HomeScreen がアプリ一覧をまだロード中
         Text(
             text = stringResource(R.string.manage_loading),
-            style = COUITheme.textStyles.body2,
-            color = COUITheme.colorScheme.onSurfaceVariantSummary,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
         )
         return
@@ -200,8 +200,8 @@ private fun ModuleSettings() {
     if (modules.isEmpty()) {
         Text(
             text = stringResource(R.string.settings_modules_empty),
-            style = COUITheme.textStyles.body2,
-            color = COUITheme.colorScheme.onSurfaceVariantSummary,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
         )
         return
@@ -317,7 +317,7 @@ private fun SettingsStartIcon(imageVector: ImageVector) {
             imageVector = imageVector,
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
-            tint = COUITheme.colorScheme.primary
+            tint = MiuixTheme.colorScheme.primary
         )
     }
 }
@@ -500,8 +500,8 @@ private fun KeyStore() {
                 Text(
                     modifier = Modifier.padding(bottom = 8.dp),
                     text = wrongText ?: stringResource(R.string.settings_keystore_desc),
-                    color = if (wrongText != null) COUITheme.colorScheme.error else COUITheme.colorScheme.onSurfaceVariantSummary,
-                    style = COUITheme.textStyles.body2,
+                    color = if (wrongText != null) MiuixTheme.colorScheme.error else MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    style = MiuixTheme.textStyles.body2,
                     textAlign = TextAlign.Center
                 )
 
@@ -713,8 +713,8 @@ private fun ProxyVersionSettings() {
         ) {
             Text(
                 text = stringResource(R.string.settings_custom_line_version_dialog_desc),
-                style = COUITheme.textStyles.body2,
-                color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.padding(bottom = 12.dp),
             )
             TextField(
@@ -792,8 +792,8 @@ private fun ProxyCachePreference() {
         ) {
             Text(
                 text = stringResource(R.string.settings_proxy_cache_clear_desc),
-                style = COUITheme.textStyles.body2,
-                color = COUITheme.colorScheme.onSurfaceVariantSummary,
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.padding(bottom = 12.dp),
             )
             Row(

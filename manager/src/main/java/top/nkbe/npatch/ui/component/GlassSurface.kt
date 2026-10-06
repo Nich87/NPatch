@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogWindowProvider
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.nkbe.npatch.ui.theme.GlassStyle
 
 @Composable
@@ -35,7 +35,7 @@ fun GlassCard(
         modifier = modifier,
         shape = GlassStyle.cardShape,
         color = GlassStyle.surfaceColor(highlighted),
-        contentColor = COUITheme.colorScheme.onSurface,
+        contentColor = MiuixTheme.colorScheme.onSurface,
         border = GlassStyle.border(highlighted),
     ) { Column(content = content) }
 }
@@ -54,14 +54,14 @@ fun GlassDialog(
             modifier = Modifier.widthIn(max = 560.dp),
             shape = GlassStyle.dialogShape,
             color = GlassStyle.dialogColor(),
-            contentColor = COUITheme.colorScheme.onSurface,
+            contentColor = MiuixTheme.colorScheme.onSurface,
             border = GlassStyle.border(),
         ) {
             Column(Modifier.heightIn(max = 640.dp).verticalScroll(rememberScrollState())) {
                 Text(
                     title,
                     modifier = Modifier.fillMaxWidth().padding(24.dp),
-                    color = COUITheme.colorScheme.onSurface,
+                    color = MiuixTheme.colorScheme.onSurface,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.SemiBold,
                 )

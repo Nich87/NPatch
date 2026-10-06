@@ -294,6 +294,10 @@ public class LSPAppComponentFactoryStub extends AppComponentFactory {
                     if (!(instance instanceof AppComponentFactory)) {
                         throw new IllegalStateException(name + " is not an AppComponentFactory");
                     }
+                    if (instance instanceof LSPAppComponentFactoryStub) {
+                        // The installed APK's same-name entry shim is not the original factory.
+                        continue;
+                    }
                     originalFactory = (AppComponentFactory) instance;
                     return originalFactory;
                 } catch (Throwable error) {

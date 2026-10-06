@@ -9,9 +9,9 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.ui.graphics.Color
 import top.nkbe.npatch.config.DEFAULT_CUSTOM_COLOR
-import io.github.suqi8.coui.kmp.theme.ColorSchemeMode
-import io.github.suqi8.coui.kmp.theme.COUITheme
-import io.github.suqi8.coui.kmp.theme.ThemeController
+import top.yukonga.miuix.kmp.theme.ColorSchemeMode
+import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.theme.ThemeController
 
 @Composable
 fun LSPTheme(
@@ -32,7 +32,7 @@ fun LSPTheme(
         }
     }
     val themedContent: @Composable () -> Unit = {
-        val colors = COUITheme.colorScheme
+        val colors = MiuixTheme.colorScheme
         val material = if (isDarkTheme) darkColorScheme() else lightColorScheme()
         CompositionLocalProvider(
             LocalGlassAmoled provides (amoledBlack && isDarkTheme),
@@ -55,6 +55,6 @@ fun LSPTheme(
             )
         }
     }
-    if (amoledBlack && isDarkTheme) COUITheme(colors = controller.currentColors().toAmoled(), content = themedContent)
-    else COUITheme(controller = controller, content = themedContent)
+    if (amoledBlack && isDarkTheme) MiuixTheme(colors = controller.currentColors().toAmoled(), content = themedContent)
+    else MiuixTheme(controller = controller, content = themedContent)
 }

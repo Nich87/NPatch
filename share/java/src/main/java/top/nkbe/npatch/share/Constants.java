@@ -14,10 +14,11 @@ public class Constants {
     final static public String PROXY_APP_COMPONENT_FACTORY = "top.nkbe.npatch.metaloader.LSPAppComponentFactoryStub";
     final static public String MANAGER_PACKAGE_NAME = "app.voidhack.npatch";
     final static public String REAL_GMS_PACKAGE_NAME = "com.google.android.gms";
-    final static public int MIN_ROLLING_VERSION_CODE = 698;
+    final static public int MIN_ROLLING_VERSION_CODE = 826;
 
     public static final int SIGBYPASS_NONE = 0;
     public static final int SIGBYPASS_BASIC = 1;
     public static final int SIGBYPASS_HIGH = 2;
     public static final int SIGBYPASS_EXTREME = 3;
+    public static final int SIGBYPASS_SECCOMP = 4;
 }

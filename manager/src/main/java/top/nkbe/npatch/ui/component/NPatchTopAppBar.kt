@@ -5,21 +5,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
-import io.github.suqi8.coui.kmp.basic.ScrollBehavior
-import io.github.suqi8.coui.kmp.basic.TopAppBar
-import io.github.suqi8.coui.kmp.basic.TopAppBarDefaults
-import io.github.suqi8.coui.kmp.theme.COUITheme
+import top.yukonga.miuix.kmp.basic.ScrollBehavior
+import top.yukonga.miuix.kmp.basic.TopAppBar
+import top.yukonga.miuix.kmp.basic.TopAppBarDefaults
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 fun NPatchTopAppBar(
     title: String,
     modifier: Modifier = Modifier,
     color: Color = Color.Transparent,
-    titleColor: Color = COUITheme.colorScheme.onSurface,
+    titleColor: Color = MiuixTheme.colorScheme.onSurface,
     largeTitle: String = title,
-    largeTitleColor: Color = COUITheme.colorScheme.onSurface,
+    largeTitleColor: Color = MiuixTheme.colorScheme.onSurface,
     subtitle: String = "",
-    subtitleColor: Color = COUITheme.colorScheme.onSurfaceVariantSummary,
+    subtitleColor: Color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
     scrollBehavior: ScrollBehavior? = null,

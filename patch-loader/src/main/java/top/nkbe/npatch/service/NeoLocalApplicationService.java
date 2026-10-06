@@ -15,12 +15,13 @@ import android.util.Log;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import top.nkbe.npatch.loader.util.XLog;
+import top.nkbe.npatch.share.Constants;
 import top.nkbe.npatch.util.LocalInjectedModuleService;
 import top.nkbe.npatch.util.ManagerRemoteServiceBridge;
 import top.nkbe.npatch.util.ModuleLoader;
-import org.lsposed.lspd.models.Module;
-import org.lsposed.lspd.service.ILSPApplicationService;
-import org.lsposed.lspd.service.IHotReloadTarget;
+import org.matrix.vector.ipc.LoadedModule;
+import org.matrix.vector.ipc.IFrameworkService;
+import org.matrix.vector.ipc.IProcessChannel;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -31,20 +32,20 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-public class NeoLocalApplicationService extends ILSPApplicationService.Stub {
+public class NeoLocalApplicationService extends IFrameworkService.Stub {
     private static final String TAG = "NPatch";
-    private static final String AUTHORITY = "app.voidhack.npatch.manager.provider.config";
+    private static final String AUTHORITY = Constants.MANAGER_PACKAGE_NAME + ".manager.provider.config";
     private static final Uri PROVIDER_URI = Uri.parse("content://" + AUTHORITY + "/config");
     private static final long PROVIDER_TIMEOUT_SECONDS = 3;
 
     private static final class ProviderResult {
-        final List<Module> legacyModules;
-        final List<Module> modernModules;
+        final List<LoadedModule> legacyModules;
+        final List<LoadedModule> modernModules;
         final JSONArray cache;
 
         ProviderResult(
-                List<Module> legacyModules,
-                List<Module> modernModules,
+                List<LoadedModule> legacyModules,
+                List<LoadedModule> modernModules,
                 JSONArray cache
         ) {
             this.legacyModules = legacyModules;
@@ -53,8 +54,8 @@ public class NeoLocalApplicationService extends ILSPApplicationService.Stub {
         }
     }
 
-    private final List<Module> legacyModules;
-    private final List<Module> modernModules;
+    private final List<LoadedModule> legacyModules;
+    private final List<LoadedModule> modernModules;
 
     public NeoLocalApplicationService(Context context) {
         legacyModules = Collections.synchronizedList(new ArrayList<>());
@@ -64,7 +65,9 @@ public class NeoLocalApplicationService extends ILSPApplicationService.Stub {
         if (providerResult != null) {
             legacyModules.addAll(providerResult.legacyModules);
             modernModules.addAll(providerResult.modernModules);
-            updateModulesCache(context, providerResult.cache);
+            if (providerResult.cache != null) {
+                updateModulesCache(context, providerResult.cache);
+            }
         } else {
             Log.w(TAG, "NeoLocal: Provider unavailable, falling back to local cache.");
             loadModulesFromCache(context);
@@ -79,6 +82,7 @@ public class NeoLocalApplicationService extends ILSPApplicationService.Stub {
             PackageManager pm = context.getPackageManager();
 
             Log.i(TAG, "NeoLocal: Loading from cache: " + jsonStr);
+            Log.w(TAG, "NeoLocal: WARNING: Running in offline fallback mode. Module remote preferences and scope configurations are NOT synced and will be empty!");
 
             for (int i = 0; i < jsonArray.length(); i++) {
                 JSONObject obj = jsonArray.getJSONObject(i);
@@ -105,25 +109,28 @@ public class NeoLocalApplicationService extends ILSPApplicationService.Stub {
 
     private void loadModuleByPath(Context context, String pkgName, String path) {
         try {
-            Module m = new Module();
+            LoadedModule m = new LoadedModule();
             m.packageName = pkgName;
             m.apkPath = path;
             m.applicationInfo = readApplicationInfo(context, path, pkgName);
-            m.file = ModuleLoader.loadModule(m.apkPath, readLegacyMinApiVersion(m.applicationInfo));
-            if (m.file == null) {
-                Log.w(TAG, "NeoLocal: Skipping unsupported cached module " + pkgName);
+            var parsedModule = ModuleLoader.loadModule(
+                    m.apkPath,
+                    readLegacyMinApiVersion(m.applicationInfo));
+            m.code = parsedModule == null ? null : parsedModule.code;
+            if (m.code == null) {
+                Log.w(TAG, "NeoLocal: Skipping unsupported cached LoadedModule " + pkgName);
                 return;
             }
             m.appId = m.applicationInfo == null ? -1 : m.applicationInfo.uid;
             m.service = new LocalInjectedModuleService(context, m.packageName);
-            if (m.file != null && m.file.legacy) {
+            if (m.code != null && m.code.legacy) {
                 legacyModules.add(m);
             } else {
                 modernModules.add(m);
             }
-            Log.i(TAG, "Loaded cached module " + pkgName);
+            Log.i(TAG, "Loaded cached LoadedModule " + pkgName);
         } catch (Throwable e) {
-            Log.e(TAG, "Failed to load cached module " + pkgName, e);
+            Log.e(TAG, "Failed to load cached LoadedModule " + pkgName, e);
         }
     }
 
@@ -143,7 +150,12 @@ public class NeoLocalApplicationService extends ILSPApplicationService.Stub {
             Thread.currentThread().interrupt();
             Log.w(TAG, "NeoLocal: Manager Provider query interrupted");
         } catch (ExecutionException exception) {
-            Log.e(TAG, "NeoLocal: Manager Provider query failed", exception.getCause());
+            Throwable cause = exception.getCause();
+            if (cause instanceof SecurityException) {
+                Log.e(TAG, "NeoLocal: Manager Provider query blocked by system permission or ROM autostart/association launch policy", cause);
+            } else {
+                Log.e(TAG, "NeoLocal: Manager Provider query failed", cause);
+            }
         }
         return null;
     }
@@ -152,8 +164,8 @@ public class NeoLocalApplicationService extends ILSPApplicationService.Stub {
         PackageManager pm = context.getPackageManager();
         String myPackageName = context.getPackageName();
         JSONArray cacheArray = new JSONArray();
-        List<Module> providerLegacyModules = new ArrayList<>();
-        List<Module> providerModernModules = new ArrayList<>();
+        List<LoadedModule> providerLegacyModules = new ArrayList<>();
+        List<LoadedModule> providerModernModules = new ArrayList<>();
 
         Uri queryUri = PROVIDER_URI.buildUpon()
                 .appendQueryParameter("package", myPackageName)
@@ -165,7 +177,9 @@ public class NeoLocalApplicationService extends ILSPApplicationService.Stub {
                 return null;
             }
 
+            int rows = 0;
             while (cursor.moveToNext()) {
+                rows++;
                 if (Thread.currentThread().isInterrupted()) {
                     return null;
                 }
@@ -188,10 +202,11 @@ public class NeoLocalApplicationService extends ILSPApplicationService.Stub {
                     }
                 }
             }
+            // Some listed modules failed to load: keep the old snapshot rather than shrink it.
             return new ProviderResult(
                     providerLegacyModules,
                     providerModernModules,
-                    cacheArray
+                    cacheArray.length() == rows ? cacheArray : null
             );
         }
     }
@@ -201,32 +216,35 @@ public class NeoLocalApplicationService extends ILSPApplicationService.Stub {
             PackageManager pm,
             String pkgName,
             boolean managerBacked,
-            List<Module> legacyTarget,
-            List<Module> modernTarget
+            List<LoadedModule> legacyTarget,
+            List<LoadedModule> modernTarget
     ) {
         try {
             ApplicationInfo appInfo = pm.getApplicationInfo(pkgName, 0);
-            Module m = new Module();
+            LoadedModule m = new LoadedModule();
             m.packageName = pkgName;
             m.apkPath = appInfo.sourceDir;
 
             if (m.apkPath != null && new File(m.apkPath).exists()) {
                 m.applicationInfo = appInfo;
-                m.file = ModuleLoader.loadModule(m.apkPath, readLegacyMinApiVersion(m.applicationInfo));
-                if (m.file == null) {
-                    Log.w(TAG, "NeoLocal: Skipping unsupported module " + pkgName);
+                var parsedModule = ModuleLoader.loadModule(
+                        m.apkPath,
+                        readLegacyMinApiVersion(m.applicationInfo));
+                m.code = parsedModule == null ? null : parsedModule.code;
+                if (m.code == null) {
+                    Log.w(TAG, "NeoLocal: Skipping unsupported LoadedModule " + pkgName);
                     return null;
                 }
                 m.appId = appInfo.uid;
                 m.service = managerBacked
                         ? managerBackedService(context, m.packageName)
                         : new LocalInjectedModuleService(context, m.packageName);
-                if (m.file != null && m.file.legacy) {
+                if (m.code != null && m.code.legacy) {
                     legacyTarget.add(m);
                 } else {
                     modernTarget.add(m);
                 }
-                Log.i(TAG, "NeoLocal: Loaded module " + pkgName);
+                Log.i(TAG, "NeoLocal: Loaded LoadedModule " + pkgName);
                 return m.apkPath;
             }
         } catch (Throwable e) {
@@ -235,12 +253,13 @@ public class NeoLocalApplicationService extends ILSPApplicationService.Stub {
         return null;
     }
 
-    private static org.lsposed.lspd.service.ILSPInjectedModuleService managerBackedService(
+    private static org.matrix.vector.ipc.IModuleService managerBackedService(
             Context context,
             String modulePackageName
     ) {
         try {
-            return ManagerRemoteServiceBridge.connect(context, modulePackageName);
+            org.matrix.vector.ipc.IModuleService remoteService = ManagerRemoteServiceBridge.connect(context, modulePackageName);
+            return new FallbackModuleServiceWrapper(context, modulePackageName, remoteService);
         } catch (Throwable throwable) {
             Log.w(
                     TAG,
@@ -248,7 +267,7 @@ public class NeoLocalApplicationService extends ILSPApplicationService.Stub {
                             + ", using target-local fallback",
                     throwable
             );
-            return new LocalInjectedModuleService(context, modulePackageName);
+            return new top.nkbe.npatch.util.LocalInjectedModuleService(context, modulePackageName);
         }
     }
 
@@ -276,7 +295,7 @@ public class NeoLocalApplicationService extends ILSPApplicationService.Stub {
                 return applicationInfo;
             }
         } catch (Throwable e) {
-            Log.w(TAG, "NeoLocal: Failed to read cached module ApplicationInfo: " + fallbackPackageName, e);
+            Log.w(TAG, "NeoLocal: Failed to read cached LoadedModule ApplicationInfo: " + fallbackPackageName, e);
         }
         ApplicationInfo fallback = new ApplicationInfo();
         fallback.packageName = fallbackPackageName;
@@ -304,20 +323,26 @@ public class NeoLocalApplicationService extends ILSPApplicationService.Stub {
     }
 
     @Override
-    public List<Module> getLegacyModulesList() throws RemoteException {
+    public List<LoadedModule> getLegacyModules() throws RemoteException {
         return legacyModules;
     }
 
     @Override
-    public List<Module> getModulesList() throws RemoteException {
+    public List<LoadedModule> getModules() throws RemoteException {
         return modernModules;
     }
 
     @Override
     public String getPrefsPath(String packageName) throws RemoteException { return "/data/data/" + packageName + "/shared_prefs/"; }
     @Override
-    public ParcelFileDescriptor requestInjectedManagerBinder(List<IBinder> binder) throws RemoteException { return null; }
+    public ParcelFileDescriptor openManagerApk() throws RemoteException {
+        return null;
+    }
+
     @Override
+    public IBinder requestManagerService() throws RemoteException {
+        return null;
+    }@Override
     public IBinder asBinder() {
         return this;
     }
@@ -328,7 +353,7 @@ public class NeoLocalApplicationService extends ILSPApplicationService.Stub {
     }
 
     @Override
-    public void registerHotReloadTarget(IHotReloadTarget target) {
+    public void attachProcessChannel(IProcessChannel target) {
         // Embedded configuration has no manager process that can issue a reload request.
     }
 }

@@ -7,10 +7,15 @@ add_compile_definitions(
         VERSION_NAME=\"${VERSION_NAME}\")
 add_subdirectory(${CORE_ROOT} core)
 
-aux_source_directory(src SRC_LIST)
-aux_source_directory(src/jni SRC_LIST)
-set(SRC_LIST ${SRC_LIST} api/patch_main.cpp)
-set(SRC_LIST ${SRC_LIST} src/jni/bypass_sig.cpp)
+# CONFIGURE_DEPENDS (unlike aux_source_directory, which only globs once at configure time and
+# has no way to notice a file added later) makes CMake re-check this glob on every build and
+# re-run configure when it changes -- so a new .cpp dropped into src/ or src/jni/ is picked up
+# on the next build instead of silently missing from SRC_LIST until something else forces a
+# reconfigure (e.g. editing CMakeLists.txt itself), which then fails the link with an undefined
+# symbol for whatever that new file was supposed to define.
+file(GLOB SRC_LIST CONFIGURE_DEPENDS src/*.cpp src/jni/*.cpp)
+list(APPEND SRC_LIST api/patch_main.cpp)
+
 add_library(${PROJECT_NAME} SHARED ${SRC_LIST})
 
 target_include_directories(${PROJECT_NAME} PUBLIC include)

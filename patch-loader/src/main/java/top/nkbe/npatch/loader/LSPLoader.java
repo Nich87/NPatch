@@ -34,14 +34,16 @@ import dalvik.system.PathClassLoader;
 import io.github.libxposed.api.XposedModule;
 import io.github.libxposed.api.XposedModuleInterface;
 import io.github.libxposed.api.XposedInterface.ExceptionMode;
-import org.lsposed.lspd.models.Module;
-import org.lsposed.lspd.service.ILSPInjectedModuleService;
-import org.lsposed.lspd.service.ILSPApplicationService;
-import org.lsposed.lspd.service.IHotReloadTarget;
-import org.lsposed.lspd.service.IRemotePreferenceCallback;
+import org.matrix.vector.ipc.LoadedModule;
+import org.matrix.vector.ipc.IModuleService;
+import org.matrix.vector.ipc.IFrameworkService;
+import org.matrix.vector.ipc.IProcessChannel;
+import org.matrix.vector.ipc.IRemotePreferenceCallback;
+import org.matrix.vector.Startup;
 import org.matrix.vector.impl.VectorContext;
 import org.matrix.vector.impl.VectorLifecycleManager;
 import org.matrix.vector.impl.core.VectorServiceClient;
+import top.nkbe.npatch.share.LSPConfig;
 import org.matrix.vector.nativebridge.NativeAPI;
 
 public class LSPLoader {
@@ -62,26 +64,48 @@ public class LSPLoader {
     }
 
     public static void initModules(LoadedApk loadedApk) {
+        String ver = LSPConfig.instance.VERSION_NAME;
+        XposedBridge.FRAMEWORK_NAME = "NPatch";
+        XposedBridge.FRAMEWORK_VERSION = ver.startsWith("v") ? ver : "v" + ver;
+        XposedBridge.FRAMEWORK_VERSION_NAME = XposedBridge.FRAMEWORK_VERSION;
+        XposedBridge.FRAMEWORK_VERSION_CODE = LSPConfig.instance.VERSION_CODE;
+        XposedBridge.XPOSED_BRIDGE_VERSION = 93;
+
         installNativeModuleServiceProxy();
         registerModuleRuntimeAppInfos();
         installModuleSelfPathCompatibility();
+        Startup.trackLoadedApk(loadedApk);
         XposedInit.loadModules(ActivityThread.currentActivityThread());
-        ApplicationInfo moduleCompatibleAppInfo =
-                SigBypass.createModuleCompatibleApplicationInfo(loadedApk.getApplicationInfo());
-        dispatchModernLifecycle(loadedApk, moduleCompatibleAppInfo);
 
-        XposedInit.loadedPackagesInProcess.add(loadedApk.getPackageName());
-        setPackageNameForResDir(loadedApk.getPackageName(), loadedApk.getResDir());
-        XC_LoadPackage.LoadPackageParam lpparam = new XC_LoadPackage.LoadPackageParam(
-                XposedBridge.sLoadedPackageCallbacks);
-        lpparam.packageName = loadedApk.getPackageName();
-        lpparam.processName = ActivityThread.currentProcessName();
-        lpparam.classLoader = loadedApk.getClassLoader();
-        lpparam.appInfo = moduleCompatibleAppInfo != null
-                ? moduleCompatibleAppInfo
-                : loadedApk.getApplicationInfo();
-        lpparam.isFirstApplication = true;
-        XC_LoadPackage.callAll(lpparam);
+        // NOTE: loadedPackagesInProcess is deliberately NOT populated here. It used to be added at
+        // module-load time, which claimed the package before anything was actually dispatched and
+        // now collides with LegacyDispatchGate: the package must be claimed at dispatch time, not
+        // when the module list is merely loaded.
+        String resDir = null;
+        try {
+            resDir = (String) XposedHelpers.getObjectField(loadedApk, "mResDir");
+        } catch (Throwable e) {
+            Log.w(TAG, "Failed to get mResDir from LoadedApk", e);
+        }
+        setPackageNameForResDir(loadedApk.getPackageName(), resDir);
+    }
+
+    /**
+     * Retained only as a compatibility no-op.
+     *
+     * <p>The package lifecycle is dispatched exactly once by the framework's
+     * {@code LoadedApkCreateCLHooker} while {@code realizeLoadedApk()} builds the app's class loader.
+     * That is what upstream LSPatch relies on, and its loader has no replay path at all. A second
+     * producer here used to hand the same package over twice, and a native module's
+     * {@code handleLoadPackage} is not re-entrant: the second pass re-installed inline hooks over
+     * instructions that were already hooked and killed the process with a native tombstone.
+     *
+     * <p>Kept as a linkable symbol so code compiled against the old signature still resolves; it
+     * deliberately does nothing.
+     */
+    @Deprecated
+    public static void dispatchPackageLoadedIfNeeded(LoadedApk loadedApk, ApplicationInfo appInfo) {
+        // Intentionally empty: see the javadoc above.
     }
 
     private static void registerModuleRuntimeAppInfos() {
@@ -89,24 +113,24 @@ public class LSPLoader {
             Field serviceField = VectorServiceClient.class.getDeclaredField("service");
             serviceField.setAccessible(true);
             Object current = serviceField.get(VectorServiceClient.INSTANCE);
-            if (!(current instanceof ILSPApplicationService service)) {
-                Log.w(TAG, "VectorServiceClient service is not ready for module path compatibility");
+            if (!(current instanceof IFrameworkService service)) {
+                Log.w(TAG, "VectorServiceClient service is not ready for LoadedModule path compatibility");
                 return;
             }
 
-            registerModuleRuntimeAppInfos(service.getLegacyModulesList());
-            registerModuleRuntimeAppInfos(service.getModulesList());
+            registerModuleRuntimeAppInfos(service.getLegacyModules());
+            registerModuleRuntimeAppInfos(service.getModules());
         } catch (Throwable e) {
-            Log.e(TAG, "Failed to register module runtime ApplicationInfo", e);
+            Log.e(TAG, "Failed to register LoadedModule runtime ApplicationInfo", e);
         }
     }
 
-    private static void registerModuleRuntimeAppInfos(List<Module> modules) {
+    private static void registerModuleRuntimeAppInfos(List<LoadedModule> modules) {
         if (modules == null || modules.isEmpty()) {
             return;
         }
-        for (Module module : modules) {
-            ApplicationInfo runtimeAppInfo = buildRuntimeApplicationInfo(module);
+        for (LoadedModule LoadedModule : modules) {
+            ApplicationInfo runtimeAppInfo = buildRuntimeApplicationInfo(LoadedModule);
             if (runtimeAppInfo == null || runtimeAppInfo.packageName == null) {
                 continue;
             }
@@ -155,9 +179,9 @@ public class LSPLoader {
             XposedBridge.hookAllMethods(appPmClass, "getApplicationInfoAsUser", appInfoHook);
             XposedBridge.hookAllMethods(appPmClass, "getPackageInfo", packageInfoHook);
             moduleSelfPathHooked = true;
-            Log.i(TAG, "Installed module self path compatibility hook");
+            Log.i(TAG, "Installed LoadedModule self path compatibility hook");
         } catch (Throwable e) {
-            Log.e(TAG, "Failed to install module self path compatibility hook", e);
+            Log.e(TAG, "Failed to install LoadedModule self path compatibility hook", e);
         }
     }
 
@@ -174,8 +198,8 @@ public class LSPLoader {
             serviceField.setAccessible(true);
 
             Object current = serviceField.get(VectorServiceClient.INSTANCE);
-            if (!(current instanceof ILSPApplicationService)) {
-                Log.w(TAG, "VectorServiceClient service is not ready for native module proxy");
+            if (!(current instanceof IFrameworkService)) {
+                Log.w(TAG, "VectorServiceClient service is not ready for native LoadedModule proxy");
                 return;
             }
             if (current instanceof NativeModuleFilteringService) {
@@ -183,17 +207,17 @@ public class LSPLoader {
             }
 
             serviceField.set(VectorServiceClient.INSTANCE,
-                    new NativeModuleFilteringService((ILSPApplicationService) current));
-            Log.i(TAG, "Installed native module service proxy");
+                    new NativeModuleFilteringService((IFrameworkService) current));
+            Log.i(TAG, "Installed native LoadedModule service proxy");
         } catch (Throwable e) {
-            Log.e(TAG, "Failed to install native module service proxy", e);
+            Log.e(TAG, "Failed to install native LoadedModule service proxy", e);
         }
     }
 
-    private static final class NativeModuleFilteringService extends ILSPApplicationService.Stub {
-        private final ILSPApplicationService base;
+    private static final class NativeModuleFilteringService extends IFrameworkService.Stub {
+        private final IFrameworkService base;
 
-        private NativeModuleFilteringService(ILSPApplicationService base) {
+        private NativeModuleFilteringService(IFrameworkService base) {
             this.base = base;
         }
 
@@ -203,40 +227,40 @@ public class LSPLoader {
         }
 
         @Override
-        public List<Module> getLegacyModulesList() throws RemoteException {
-            return base.getLegacyModulesList();
+        public List<LoadedModule> getLegacyModules() throws RemoteException {
+            return base.getLegacyModules();
         }
 
         @Override
-        public List<Module> getModulesList() throws RemoteException {
-            List<Module> modules = base.getModulesList();
+        public List<LoadedModule> getModules() throws RemoteException {
+            List<LoadedModule> modules = base.getModules();
             if (modules == null || modules.isEmpty()) {
                 return modules;
             }
 
-            List<Module> filtered = new ArrayList<>(modules.size());
+            List<LoadedModule> filtered = new ArrayList<>(modules.size());
             String processName = ActivityThread.currentProcessName();
-            for (Module module : modules) {
-                if (!shouldHandleNative(module)) {
-                    filtered.add(module);
+            for (LoadedModule LoadedModule : modules) {
+                if (!shouldHandleNative(LoadedModule)) {
+                    filtered.add(LoadedModule);
                     continue;
                 }
 
-                String key = module.packageName + "@" + module.apkPath;
+                String key = LoadedModule.packageName + "@" + LoadedModule.apkPath;
                 synchronized (enhancedLoadedModules) {
                     if (enhancedLoadedModules.contains(key)) {
-                        Log.i(TAG, "Filtering already enhanced native module: " + module.packageName);
+                        Log.i(TAG, "Filtering already enhanced native LoadedModule: " + LoadedModule.packageName);
                         continue;
                     }
                 }
 
-                Log.i(TAG, "Enhanced loading native module before core: " + module.packageName);
-                if (performEnhancedLoad(module, false, processName)) {
+                Log.i(TAG, "Enhanced loading native LoadedModule before core: " + LoadedModule.packageName);
+                if (performEnhancedLoad(LoadedModule, false, processName)) {
                     synchronized (enhancedLoadedModules) {
                         enhancedLoadedModules.add(key);
                     }
                 } else {
-                    filtered.add(module);
+                    filtered.add(LoadedModule);
                 }
             }
             return filtered;
@@ -248,14 +272,18 @@ public class LSPLoader {
         }
 
         @Override
-        public ParcelFileDescriptor requestInjectedManagerBinder(List<IBinder> binder)
-                throws RemoteException {
-            return base.requestInjectedManagerBinder(binder);
+        public ParcelFileDescriptor openManagerApk() throws RemoteException {
+            return base.openManagerApk();
         }
 
         @Override
-        public void registerHotReloadTarget(IHotReloadTarget target) throws RemoteException {
-            base.registerHotReloadTarget(target);
+        public IBinder requestManagerService() throws RemoteException {
+            return base.requestManagerService();
+        }
+
+        @Override
+        public void attachProcessChannel(IProcessChannel target) throws RemoteException {
+            base.attachProcessChannel(target);
         }
 
         @Override
@@ -264,25 +292,25 @@ public class LSPLoader {
         }
     }
 
-    private static boolean shouldHandleNative(Module module) {
+    private static boolean shouldHandleNative(LoadedModule LoadedModule) {
         // Only modules that explicitly declare native entrypoints should go
         // through the eager native path. Plenty of modern modules bundle JNI
         // or third-party .so files but still expect plain Java onModuleLoaded().
-        return module != null
-                && module.file != null
-                && module.file.moduleLibraryNames != null
-                && !module.file.moduleLibraryNames.isEmpty();
+        return LoadedModule != null
+                && LoadedModule.code != null
+                && LoadedModule.code.moduleLibraryNames != null
+                && !LoadedModule.code.moduleLibraryNames.isEmpty();
     }
 
     private static ClassLoader createEnhancedModuleClassLoader(
-            Module module,
+            LoadedModule LoadedModule,
             String librarySearchPath,
             ClassLoader parent
     ) {
-        if (module.file.targetApiVersion < 102) {
-            return new PathClassLoader(module.apkPath, librarySearchPath, parent);
+        if (LoadedModule.code.targetApiVersion < 102) {
+            return new PathClassLoader(LoadedModule.apkPath, librarySearchPath, parent);
         }
-        return new PathClassLoader(module.apkPath, librarySearchPath, parent) {
+        return new PathClassLoader(LoadedModule.apkPath, librarySearchPath, parent) {
             @Override
             protected Class<?> loadClass(String name, boolean resolve)
                     throws ClassNotFoundException {
@@ -296,37 +324,31 @@ public class LSPLoader {
         };
     }
 
-    private static boolean performEnhancedLoad(Module module, boolean isSystemServer, String processName) {
+    private static boolean performEnhancedLoad(LoadedModule LoadedModule, boolean isSystemServer, String processName) {
         try {
-            ApplicationInfo moduleAppInfo = buildRuntimeApplicationInfo(module);
+            ApplicationInfo moduleAppInfo = buildRuntimeApplicationInfo(LoadedModule);
             File nativeDir = resolvePreparedNativeDir(moduleAppInfo);
-            String librarySearchPath = buildLibrarySearchPath(module, nativeDir);
+            String librarySearchPath = buildLibrarySearchPath(LoadedModule, nativeDir);
 
             ClassLoader initLoader = XposedModule.class.getClassLoader();
             ClassLoader moduleClassLoader =
-                    createEnhancedModuleClassLoader(module, librarySearchPath, initLoader);
+                    createEnhancedModuleClassLoader(LoadedModule, librarySearchPath, initLoader);
 
             VectorContext vectorContext = new VectorContext(
-                    module.packageName,
+                    LoadedModule.packageName,
                     moduleAppInfo,
-                    module.service != null ? module.service : EMPTY_INJECTED_MODULE_SERVICE,
-                    module.file.exceptionPassthrough
+                    LoadedModule.service != null ? LoadedModule.service : EMPTY_INJECTED_MODULE_SERVICE,
+                    LoadedModule.code.exceptionPassthrough
                             ? ExceptionMode.PASSTHROUGH
                             : ExceptionMode.PROTECTIVE
             );
 
-            for (String libName : discoverNativeLibraries(module)) {
+            for (String libName : discoverNativeLibraries(LoadedModule)) {
                 NativeAPI.recordNativeEntrypoint(libName);
-                for (String candidate : buildNativeInitCandidates(module, nativeDir, libName)) {
-                    if (NativeAPI.initializeNativeEntrypoint(libName, candidate)) {
-                        Log.i(TAG, "Prepared native library " + libName + " from " + candidate);
-                        break;
-                    }
-                }
             }
 
-            if (module.file != null && module.file.moduleClassNames != null) {
-                for (String className : module.file.moduleClassNames) {
+            if (LoadedModule.code != null && LoadedModule.code.moduleClassNames != null) {
+                for (String className : LoadedModule.code.moduleClassNames) {
                     Class<?> moduleClass = moduleClassLoader.loadClass(className);
                     if (XposedModule.class.isAssignableFrom(moduleClass)) {
                         Constructor<?> ctor = moduleClass.getDeclaredConstructor();
@@ -348,29 +370,29 @@ public class LSPLoader {
                 }
             }
 
-            Log.d(TAG, "Enhanced load successful for " + module.packageName);
+            Log.d(TAG, "Enhanced load successful for " + LoadedModule.packageName);
             return true;
         } catch (Throwable e) {
-            Log.e(TAG, "Enhanced load failed for " + module.packageName, e);
+            Log.e(TAG, "Enhanced load failed for " + LoadedModule.packageName, e);
             return false;
         }
     }
 
-    private static ApplicationInfo buildRuntimeApplicationInfo(Module module) {
-        if (module == null || module.packageName == null || module.apkPath == null) {
+    private static ApplicationInfo buildRuntimeApplicationInfo(LoadedModule LoadedModule) {
+        if (LoadedModule == null || LoadedModule.packageName == null || LoadedModule.apkPath == null) {
             return null;
         }
-        ApplicationInfo appInfo = copyApplicationInfo(module.applicationInfo);
+        ApplicationInfo appInfo = copyApplicationInfo(LoadedModule.applicationInfo);
         if (appInfo == null) {
             appInfo = new ApplicationInfo();
-            appInfo.packageName = module.packageName;
-            appInfo.uid = module.appId;
+            appInfo.packageName = LoadedModule.packageName;
+            appInfo.uid = LoadedModule.appId;
         }
-        appInfo.sourceDir = module.apkPath;
-        appInfo.publicSourceDir = module.apkPath;
+        appInfo.sourceDir = LoadedModule.apkPath;
+        appInfo.publicSourceDir = LoadedModule.apkPath;
         appInfo.flags |= ApplicationInfo.FLAG_HAS_CODE;
 
-        File nativeDir = prepareNativeLibraryDir(module);
+        File nativeDir = prepareNativeLibraryDir(LoadedModule);
         if (nativeDir != null) {
             appInfo.nativeLibraryDir = nativeDir.getAbsolutePath();
             appInfo.flags |= (1 << 26);
@@ -405,42 +427,42 @@ public class LSPLoader {
         return new File(appInfo.nativeLibraryDir);
     }
 
-    private static File prepareNativeLibraryDir(Module module) {
-        return ModuleNativeCache.prepare(currentApplication(), module);
+    private static File prepareNativeLibraryDir(LoadedModule LoadedModule) {
+        return ModuleNativeCache.prepare(currentApplication(), LoadedModule);
     }
 
-    private static String buildLibrarySearchPath(Module module, File nativeDir) {
+    private static String buildLibrarySearchPath(LoadedModule LoadedModule, File nativeDir) {
         StringBuilder sb = new StringBuilder();
         if (nativeDir != null) {
             sb.append(nativeDir.getAbsolutePath()).append(File.pathSeparator);
         }
         String[] abis = Process.is64Bit() ? Build.SUPPORTED_64_BIT_ABIS : Build.SUPPORTED_32_BIT_ABIS;
         for (String abi : abis) {
-            sb.append(module.apkPath).append("!/lib/").append(abi).append(File.pathSeparator);
+            sb.append(LoadedModule.apkPath).append("!/lib/").append(abi).append(File.pathSeparator);
         }
         return sb.toString();
     }
 
-    private static List<String> buildNativeInitCandidates(Module module, File nativeDir, String libName) {
+    private static List<String> buildNativeInitCandidates(LoadedModule LoadedModule, File nativeDir, String libName) {
         LinkedHashSet<String> candidates = new LinkedHashSet<>();
         if (nativeDir != null) {
             candidates.add(new File(nativeDir, libName).getAbsolutePath());
         }
         String[] abis = Process.is64Bit() ? Build.SUPPORTED_64_BIT_ABIS : Build.SUPPORTED_32_BIT_ABIS;
         for (String abi : abis) {
-            candidates.add(module.apkPath + "!/lib/" + abi + "/" + libName);
+            candidates.add(LoadedModule.apkPath + "!/lib/" + abi + "/" + libName);
             String normalizedAbi = abi.toLowerCase(Locale.ROOT);
             if (!normalizedAbi.equals(abi)) {
-                candidates.add(module.apkPath + "!/lib/" + normalizedAbi + "/" + libName);
+                candidates.add(LoadedModule.apkPath + "!/lib/" + normalizedAbi + "/" + libName);
             }
         }
         return new ArrayList<>(candidates);
     }
 
-    private static List<String> discoverNativeLibraries(Module module) {
+    private static List<String> discoverNativeLibraries(LoadedModule LoadedModule) {
         LinkedHashSet<String> libraries = new LinkedHashSet<>();
-        if (module.file != null && module.file.moduleLibraryNames != null) {
-            for (String libName : module.file.moduleLibraryNames) {
+        if (LoadedModule.code != null && LoadedModule.code.moduleLibraryNames != null) {
+            for (String libName : LoadedModule.code.moduleLibraryNames) {
                 if (libName == null || libName.isEmpty()) {
                     continue;
                 }
@@ -460,8 +482,8 @@ public class LSPLoader {
         } catch (Throwable ignored) { return null; }
     }
 
-    private static final ILSPInjectedModuleService EMPTY_INJECTED_MODULE_SERVICE =
-            new ILSPInjectedModuleService.Stub() {
+    private static final IModuleService EMPTY_INJECTED_MODULE_SERVICE =
+            new IModuleService.Stub() {
                 @Override
                 public long getFrameworkProperties() {
                     return 0L;
@@ -481,49 +503,10 @@ public class LSPLoader {
                 }
 
                 @Override
-                public String[] getRemoteFileList() {
+                public String[] getRemoteFileNames() {
                     return new String[0];
                 }
             };
-
-    private static void dispatchModernLifecycle(LoadedApk loadedApk, ApplicationInfo moduleCompatibleAppInfo) {
-        try {
-            String packageName = loadedApk.getPackageName();
-            ApplicationInfo appInfo = moduleCompatibleAppInfo != null
-                    ? moduleCompatibleAppInfo
-                    : loadedApk.getApplicationInfo();
-            ClassLoader classLoader = loadedApk.getClassLoader();
-            Object appComponentFactory = createAppComponentFactory(appInfo, classLoader);
-
-            VectorLifecycleManager.INSTANCE.dispatchPackageLoaded(
-                    packageName,
-                    appInfo,
-                    true,
-                    classLoader);
-            VectorLifecycleManager.INSTANCE.dispatchPackageReady(
-                    packageName,
-                    appInfo,
-                    true,
-                    classLoader,
-                    classLoader,
-                    appComponentFactory);
-        } catch (Throwable e) {
-            Log.e(TAG, "Failed to dispatch modern Xposed lifecycle", e);
-        }
-    }
-
-    private static Object createAppComponentFactory(ApplicationInfo appInfo, ClassLoader classLoader) {
-        if (appInfo == null || appInfo.appComponentFactory == null || appInfo.appComponentFactory.isEmpty()) {
-            return null;
-        }
-        try {
-            Class<?> factoryClass = classLoader.loadClass(appInfo.appComponentFactory);
-            return factoryClass.getDeclaredConstructor().newInstance();
-        } catch (Throwable e) {
-            Log.w(TAG, "Failed to create AppComponentFactory: " + appInfo.appComponentFactory, e);
-            return null;
-        }
-    }
 
     private static void setPackageNameForResDir(String packageName, String resDir) {
         try {

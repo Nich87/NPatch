@@ -56,7 +56,7 @@ class AppUpdateUiTest {
                 Column {
                     AppUpdatePreference(UpdateState(release = release), onCheck = {}, onOpen = { showDialog = true })
                 }
-                // Reproduces MainActivity's sibling placement outside the COUI Scaffold.
+                // Reproduces MainActivity's sibling placement outside the Miuix Scaffold.
                 AppUpdateDetailsDialog(UpdateState(release = release, showDialog = showDialog),
                     onDismiss = { showDialog = false }, onCheck = {},
                     onDownload = { downloaded = true }, onInstall = {})
