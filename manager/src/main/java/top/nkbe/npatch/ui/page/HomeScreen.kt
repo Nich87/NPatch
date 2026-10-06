@@ -654,9 +654,9 @@ private fun KnotReleaseItem(
             }
 
             Spacer(Modifier.height(16.dp))
-            Column(
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Button(
                     onClick = {
@@ -686,7 +686,7 @@ private fun KnotReleaseItem(
                         }
                     },
                     enabled = !isDownloading,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     cornerRadius = 24.dp,
                 ) {
                     if (isDownloading) {
@@ -709,7 +709,7 @@ private fun KnotReleaseItem(
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     cornerRadius = 24.dp,
                     colors = ButtonDefaults.buttonColors(
                         color = Color.Transparent,
