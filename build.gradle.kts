@@ -44,6 +44,27 @@ abstract class GitCommitCountValueSource : ValueSource<Int, GitCommitCountValueS
     }
 }
 
+abstract class GitTagValueSource : ValueSource<String, GitTagValueSource.Parameters> {
+    interface Parameters : ValueSourceParameters {
+        val workingDirectory: Property<String>
+        val fallback: Property<String>
+    }
+
+    @get:Inject abstract val execOperations: ExecOperations
+
+    override fun obtain(): String {
+        val output = ByteArrayOutputStream()
+        val result = execOperations.exec {
+            commandLine("git", "-C", parameters.workingDirectory.get(), "describe", "--tags", "--abbrev=0", "HEAD")
+            standardOutput = output
+            errorOutput = ByteArrayOutputStream()
+            isIgnoreExitValue = true
+        }
+        val version = if (result.exitValue == 0) output.toString().trim().removePrefix("v") else ""
+        return version.ifEmpty { parameters.fallback.get() }
+    }
+}
+
 val commitCount = providers.of(GitCommitCountValueSource::class) {
     parameters.workingDirectory.set(rootDir.absolutePath)
     parameters.candidateRefs.set(
@@ -60,10 +81,15 @@ val coreCommitCount = providers.of(GitCommitCountValueSource::class) {
     parameters.fallback.set(3111)
 }.get()
 
+val latestTag = providers.of(GitTagValueSource::class) {
+    parameters.workingDirectory.set(rootDir.absolutePath)
+    parameters.fallback.set("1.0.8")
+}.get()
+
 val defaultManagerPackageName by extra("app.voidhack.npatch")
 val apiCode by extra(102)
 val verCode by extra(commitCount)
-val verName by extra("1.0.8")
+val verName by extra(latestTag)
 val coreVerCode by extra(coreCommitCount)
 val coreVerName by extra("v2.2-core")
 val androidMinSdkVersion by extra(28)
