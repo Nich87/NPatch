@@ -15,12 +15,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.nkbe.npatch.ui.component.GlassDialog
+import top.nkbe.npatch.ui.component.GlassDialogActions
 import top.yukonga.miuix.kmp.basic.SnackbarHost
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlinx.coroutines.launch
@@ -261,23 +260,12 @@ fun PatchAbortDialog(
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.padding(bottom = 12.dp),
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                TextButton(
-                    text = stringResource(android.R.string.cancel),
-                    onClick = { show.value = false; onDismiss() },
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(16.dp))
-                TextButton(
-                    text = stringResource(R.string.patch_abort_confirm),
-                    onClick = { show.value = false; onConfirm() },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.textButtonColors(),
-                )
-            }
+            GlassDialogActions(
+                dismissText = stringResource(android.R.string.cancel),
+                onDismiss = { show.value = false; onDismiss() },
+                confirmText = stringResource(R.string.patch_abort_confirm),
+                onConfirm = { show.value = false; onConfirm() },
+            )
         }
     }
 }
@@ -300,22 +288,12 @@ fun LineDownloadDialog(
                 text = stringResource(R.string.line_download_dialog_message),
                 modifier = Modifier.padding(bottom = 16.dp),
             )
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                TextButton(
-                    text = stringResource(android.R.string.cancel),
-                    onClick = { show.value = false; onDismiss() },
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(20.dp))
-                TextButton(
-                    text = stringResource(R.string.open_download_page),
-                    onClick = { show.value = false; onOpenDownload() },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.textButtonColors(),
-                )
-            }
+            GlassDialogActions(
+                dismissText = stringResource(android.R.string.cancel),
+                onDismiss = { show.value = false; onDismiss() },
+                confirmText = stringResource(R.string.open_download_page),
+                onConfirm = { show.value = false; onOpenDownload() },
+            )
         }
     }
 }

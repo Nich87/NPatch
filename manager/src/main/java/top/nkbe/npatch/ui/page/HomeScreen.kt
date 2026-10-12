@@ -77,6 +77,7 @@ import top.nkbe.npatch.repo.KnotReleaseLoader
 import top.nkbe.npatch.ui.component.AppUpdateCard
 import top.nkbe.npatch.ui.component.GlassCard
 import top.nkbe.npatch.ui.component.GlassDialog
+import top.nkbe.npatch.ui.component.GlassDialogActions
 import top.nkbe.npatch.ui.component.NPatchScaffold
 import top.nkbe.npatch.ui.component.ReleaseNotesMarkdown
 import top.nkbe.npatch.ui.theme.GlassStyle
@@ -465,25 +466,15 @@ fun HomeScreen(
             Column(Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.storage_not_set_message))
                 Spacer(Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    TextButton(
-                        text = stringResource(android.R.string.cancel),
-                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                        onClick = { showStorageWarning = false },
-                    )
-                    TextButton(
-                        text = stringResource(R.string.go_to_settings),
-                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                        onClick = {
-                            showStorageWarning = false
-                            onNavigateToSettings()
-                        },
-                        colors = ButtonDefaults.textButtonColors(),
-                    )
-                }
+                GlassDialogActions(
+                    dismissText = stringResource(android.R.string.cancel),
+                    onDismiss = { showStorageWarning = false },
+                    confirmText = stringResource(R.string.go_to_settings),
+                    onConfirm = {
+                        showStorageWarning = false
+                        onNavigateToSettings()
+                    },
+                )
             }
         }
     }
