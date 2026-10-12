@@ -9,8 +9,24 @@
 // future fix only has to land once.
 
 #include <cstring>
+#include <string_view>
 
 namespace lspd {
+
+    inline bool ShouldRedirectApkContents(const char* caller_path, bool module_caller,
+                                         bool target_apk) {
+        if (module_caller) return false;
+        if (!target_apk || caller_path == nullptr) return true;
+        std::string_view path(caller_path);
+        if (!path.starts_with("/system/") && !path.starts_with("/system_ext/")
+                && !path.starts_with("/apex/")) return true;
+        if (path.ends_with(" (deleted)")) path.remove_suffix(10);
+        const auto library = path.substr(path.find_last_of('/') + 1);
+        // Resource ZIP offsets belong to the patched APK, including when AssetManager
+        // reopens a stored asset for openFd. Generic Java/libc readers still redirect.
+        return library != "libandroidfw.so" && library != "libandroid.so"
+               && library != "libandroid_runtime.so" && library != "libziparchive.so";
+    }
 
     inline bool PathMatchesTarget(const char* candidate, const char* target_path, size_t target_len) {
         if (candidate == nullptr || target_path == nullptr || target_len == 0) {
