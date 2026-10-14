@@ -20,6 +20,8 @@ object GlassStyle {
     val cardShape = RoundedCornerShape(24.dp)
     val dialogShape = RoundedCornerShape(28.dp)
     val contentPadding = 18.dp
+    val dialogButtonMinHeight = 48.dp
+    val dialogButtonSpacing = 16.dp
 
     @Composable
     fun surfaceColor(highlighted: Boolean = false): Color {

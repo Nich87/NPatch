@@ -18,6 +18,7 @@ import android.os.IBinder
 import android.os.IInterface
 import android.os.Process
 import android.os.SystemProperties
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -26,6 +27,7 @@ import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
 import rikka.shizuku.ShizukuProvider
 import rikka.shizuku.SystemServiceHelper
+import top.nkbe.npatch.lspApp
 
 /**
  * Thin wrapper around the Shizuku API that exposes the state of the
@@ -35,7 +37,17 @@ import rikka.shizuku.SystemServiceHelper
 object ShizukuApi {
 
     private const val PERMISSION_REQUEST_CODE = 114514
+    private const val PREFS_PERMISSION_REQUESTED = "shizuku_permission_requested"
     private var initialized = false
+    private val permissionPrompt = ShizukuPermissionPrompt(
+        requestedBefore = { lspApp.prefs.getBoolean(PREFS_PERMISSION_REQUESTED, false) },
+        rememberRequest = { lspApp.prefs.edit().putBoolean(PREFS_PERMISSION_REQUESTED, true).apply() },
+        request = { requestCode ->
+            runCatching { Shizuku.requestPermission(requestCode) }
+                .onFailure { Log.w("ShizukuApi", "Failed to request Shizuku permission", it) }
+        },
+        automaticRequestCode = PERMISSION_REQUEST_CODE,
+    )
 
     private fun IBinder.wrap() = ShizukuBinderWrapper(this)
     private fun IInterface.asShizukuBinder() = this.asBinder().wrap()
@@ -78,6 +90,7 @@ object ShizukuApi {
         ShizukuProvider.enableMultiProcessSupport(true)
         Shizuku.addBinderReceivedListenerSticky {
             refreshState()
+            permissionPrompt.onConnectionUpdated(isBinderAvailable, isPermissionGranted, wasPermissionDenied())
         }
         Shizuku.addBinderDeadListener {
             isBinderAvailable = false
@@ -106,8 +119,20 @@ object ShizukuApi {
 
     fun requestPermission(requestCode: Int = PERMISSION_REQUEST_CODE) {
         refreshState()
-        if (!isBinderAvailable) return
-        runCatching { Shizuku.requestPermission(requestCode) }
+        permissionPrompt.requestManually(isBinderAvailable, requestCode)
+    }
+
+    fun onManagerResumed() {
+        refreshState()
+        permissionPrompt.onManagerResumed(isBinderAvailable, isPermissionGranted, wasPermissionDenied())
+    }
+
+    fun onManagerPaused() {
+        permissionPrompt.onManagerPaused()
+    }
+
+    private fun wasPermissionDenied(): Boolean {
+        return isBinderAvailable && runCatching { Shizuku.shouldShowRequestPermissionRationale() }.getOrDefault(false)
     }
 
     fun addRequestPermissionResultListener(listener: (Int, Int) -> Unit) {
@@ -116,11 +141,11 @@ object ShizukuApi {
 
     fun addOnReadyListener(listener: () -> Unit) {
         Shizuku.addBinderReceivedListenerSticky {
-            if (isPermissionGranted) {
-                listener()
-            } else {
-                Shizuku.requestPermission(PERMISSION_REQUEST_CODE)
-            }
+            refreshState()
+            if (isReady) listener()
+        }
+        Shizuku.addRequestPermissionResultListener { _, grantResult ->
+            if (isBinderAvailable && grantResult == PackageManager.PERMISSION_GRANTED) listener()
         }
     }
 

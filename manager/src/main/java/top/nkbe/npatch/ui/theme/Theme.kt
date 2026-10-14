@@ -55,6 +55,11 @@ fun LSPTheme(
             )
         }
     }
-    if (amoledBlack && isDarkTheme) MiuixTheme(colors = controller.currentColors().toAmoled(), content = themedContent)
-    else MiuixTheme(controller = controller, content = themedContent)
+    MiuixTheme(controller = controller) {
+        val colors = MiuixTheme.colorScheme
+        MiuixTheme(
+            colors = if (amoledBlack && isDarkTheme) colors.toAmoled() else colors,
+            content = themedContent,
+        )
+    }
 }

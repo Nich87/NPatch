@@ -48,6 +48,7 @@ namespace lspd {
     using OpenAtFn = int(*)(int, const char*, int, ...);
     using OpenFn = int(*)(const char*, int, ...);
     using Open2Fn = int(*)(const char*, int);
+    using OpenAt2Fn = int(*)(int, const char*, int);
     using AccessFn = int(*)(const char*, int);
     using ReadlinkFn = ssize_t(*)(const char*, char*, size_t);
     using ReadlinkAtFn = ssize_t(*)(int, const char*, char*, size_t);
@@ -75,6 +76,7 @@ namespace lspd {
     static void *open_target = nullptr;
     static void *open64_target = nullptr;
     static void *__open_2_target = nullptr;
+    static void *__openat_2_target = nullptr;
     static void *access_target = nullptr;
     static void *readlink_target = nullptr;
     static void *readlinkat_target = nullptr;
@@ -92,6 +94,7 @@ namespace lspd {
     static OpenFn open_backup = nullptr;
     static OpenFn open64_backup = nullptr;
     static Open2Fn __open_2_backup = nullptr;
+    static OpenAt2Fn __openat_2_backup = nullptr;
     static AccessFn access_backup = nullptr;
     static ReadlinkFn readlink_backup = nullptr;
     static ReadlinkAtFn readlinkat_backup = nullptr;
@@ -111,6 +114,7 @@ namespace lspd {
     static bool open_hook_installed = false;
     static bool open64_hook_installed = false;
     static bool __open_2_hook_installed = false;
+    static bool __openat_2_hook_installed = false;
     static bool access_hook_installed = false;
     static bool readlink_hook_installed = false;
     static bool readlinkat_hook_installed = false;
@@ -130,6 +134,13 @@ namespace lspd {
     static thread_local bool g_openat_reentry = false;
     static thread_local bool g_fopen_reentry = false;
     static thread_local std::string g_redirect_buffer;
+
+    struct ReentryGuard {
+        bool& flag;
+        const bool was_set;
+        explicit ReentryGuard(bool& value) : flag(value), was_set(value) { flag = true; }
+        ~ReentryGuard() { flag = was_set; }
+    };
 
     struct LibSnapshot {
         const char* soname;
@@ -891,12 +902,17 @@ namespace lspd {
         return false;
     }
 
-    static bool should_redirect_apk_contents(const void* caller_pc) {
+    static bool should_redirect_apk_contents(const void* caller_pc, const char* pathname) {
         // 【重要】这里必须按调用方分流。targetApkPath 是外层修补 APK，而 redirectApkPath
         // （origin.apk）不含 NPatch 注入的模块/加固资源。若把加固模块 JNI_OnLoad 对 APK 的
         // 读取重定向到 origin.apk，会导致 JNI_OnLoad/UnsatisfiedLinkError、模块无法加载。
         // 禁止将这里简化为无条件返回 true。
-        return !is_npatch_module_native_caller(caller_pc);
+        const bool module_caller = is_npatch_module_native_caller(caller_pc);
+        Dl_info info = {};
+        if (caller_pc != nullptr) dladdr(caller_pc, &info);
+        std::scoped_lock lock(g_path_mutex);
+        return ShouldRedirectApkContents(info.dli_fname, module_caller,
+                                         path_matches_target_locked(pathname));
     }
 
     int open_sanitized_proc_file(const char* pathname, const void* caller_pc) {
@@ -998,15 +1014,14 @@ namespace lspd {
         const bool has_mode = needs_mode(flags);
         const mode_t mode = has_mode ? va_arg(ap, mode_t) : 0;
         const char* redirected_path = pathname;
+        ReentryGuard guard(g_openat_reentry);
 
-        if (!g_openat_reentry) {
+        if (!guard.was_set) {
             // 某些 ROM 可能讓底層再次回到 openat，這裡先擋遞迴重入。
-            g_openat_reentry = true;
             if (is_read_only_open(flags)) {
                 int sanitized_fd = open_sanitized_proc_file(pathname, caller_pc);
                 if (sanitized_fd >= 0) {
                     LOGD("SigBypass: Serve sanitized {} for {}", symbol_name, pathname);
-                    g_openat_reentry = false;
                     return sanitized_fd;
                 }
             }
@@ -1014,12 +1029,11 @@ namespace lspd {
             // actually matches, not on every read-only open.
             const char* candidate = resolve_redirect_path(pathname);
             if (candidate != pathname && candidate != nullptr
-                    && should_redirect_apk_contents(caller_pc)) {
+                    && should_redirect_apk_contents(caller_pc, pathname)) {
                 redirected_path = candidate;
                 LOGD("SigBypass: Redirecting {}('{}') -> '{}'",
                      symbol_name, pathname, redirected_path);
             }
-            g_openat_reentry = false;
         }
         int result = call_openat(backup, dirfd, redirected_path, flags, mode, has_mode);
 
@@ -1050,25 +1064,23 @@ namespace lspd {
         const bool has_mode = needs_mode(flags);
         const mode_t mode = has_mode ? va_arg(ap, mode_t) : 0;
         const char* redirected_path = pathname;
+        ReentryGuard guard(g_openat_reentry);
 
-        if (!g_openat_reentry) {
-            g_openat_reentry = true;
+        if (!guard.was_set) {
             if (is_read_only_open(flags)) {
                 int sanitized_fd = open_sanitized_proc_file(pathname, caller_pc);
                 if (sanitized_fd >= 0) {
                     LOGD("SigBypass: Serve sanitized {} for {}", symbol_name, pathname);
-                    g_openat_reentry = false;
                     return sanitized_fd;
                 }
             }
             const char* candidate = resolve_redirect_path(pathname);
             if (candidate != pathname && candidate != nullptr
-                    && should_redirect_apk_contents(caller_pc)) {
+                    && should_redirect_apk_contents(caller_pc, pathname)) {
                 redirected_path = candidate;
                 LOGD("SigBypass: Redirecting {}('{}') -> '{}'",
                      symbol_name, pathname, redirected_path);
             }
-            g_openat_reentry = false;
         }
 
         int result = call_open(backup, redirected_path, flags, mode, has_mode);
@@ -1086,18 +1098,16 @@ namespace lspd {
         }
 
         const char* redirected_path = pathname;
-        if (!g_fopen_reentry) {
-            g_fopen_reentry = true;
+        ReentryGuard open_guard(g_openat_reentry);
+        ReentryGuard fopen_guard(g_fopen_reentry);
+        if (!open_guard.was_set && !fopen_guard.was_set) {
             const bool read_only = mode != nullptr && mode[0] == 'r' && strchr(mode, '+') == nullptr;
             if (read_only) {
-                g_openat_reentry = true;
                 int sanitized_fd = open_sanitized_proc_file(pathname, caller_pc);
-                g_openat_reentry = false;
                 if (sanitized_fd >= 0) {
                     FILE* fp = fdopen(sanitized_fd, mode);
                     if (fp != nullptr) {
                         LOGD("SigBypass: Serve sanitized fopen for %s", pathname);
-                        g_fopen_reentry = false;
                         return fp;
                     }
                     close(sanitized_fd);
@@ -1105,11 +1115,10 @@ namespace lspd {
             }
             const char* candidate = resolve_redirect_path(pathname);
             if (candidate != pathname && candidate != nullptr
-                    && should_redirect_apk_contents(caller_pc)) {
+                    && should_redirect_apk_contents(caller_pc, pathname)) {
                 redirected_path = candidate;
                 LOGD("SigBypass: Redirecting fopen('%s') -> '%s'", pathname, redirected_path);
             }
-            g_fopen_reentry = false;
         }
 
         return backup(redirected_path, mode);
@@ -1144,17 +1153,15 @@ namespace lspd {
 
     static int hooked___open_2(const char* pathname, int flags) {
         const void* caller_pc = __builtin_return_address(0);
-        if (!g_openat_reentry) {
-            g_openat_reentry = true;
+        ReentryGuard guard(g_openat_reentry);
+        if (!guard.was_set) {
             if (is_read_only_open(flags)) {
                 int sanitized_fd = open_sanitized_proc_file(pathname, caller_pc);
                 if (sanitized_fd >= 0) {
                     LOGD("SigBypass: Serve sanitized __open_2 for {}", pathname);
-                    g_openat_reentry = false;
                     return sanitized_fd;
                 }
             }
-            g_openat_reentry = false;
         }
 
         if (__open_2_backup == nullptr) {
@@ -1163,7 +1170,7 @@ namespace lspd {
         }
         std::string redirected_path_storage;
         const char* redirected_path = pathname;
-        if (should_redirect_apk_contents(caller_pc)) {
+        if (!guard.was_set && should_redirect_apk_contents(caller_pc, pathname)) {
             redirected_path = get_visible_or_redirected_path(pathname, false, &redirected_path_storage);
         }
         int result = __open_2_backup(redirected_path, flags);
@@ -1173,6 +1180,28 @@ namespace lspd {
 
     static FILE* hooked_fopen(const char* pathname, const char* mode) {
         return hooked_fopen_impl(fopen_backup, pathname, mode, __builtin_return_address(0));
+    }
+
+    static int hooked___openat_2(int dirfd, const char* pathname, int flags) {
+        const void* caller_pc = __builtin_return_address(0);
+        ReentryGuard guard(g_openat_reentry);
+        const char* redirected_path = pathname;
+        if (!guard.was_set) {
+            if (is_read_only_open(flags)) {
+                int sanitized_fd = open_sanitized_proc_file(pathname, caller_pc);
+                if (sanitized_fd >= 0) return sanitized_fd;
+            }
+            const char* candidate = resolve_redirect_path(pathname);
+            if (candidate != pathname && candidate != nullptr
+                    && should_redirect_apk_contents(caller_pc, pathname)) {
+                redirected_path = candidate;
+            }
+        }
+        if (__openat_2_backup == nullptr) {
+            errno = ENOSYS;
+            return -1;
+        }
+        return __openat_2_backup(dirfd, redirected_path, flags);
     }
 
     static int hooked_access(const char* pathname, int mode) {
@@ -1623,85 +1652,6 @@ namespace lspd {
         return true;
     }
 
-    // __openat is bionic's internal file-open chokepoint: open/openat/openat64/open64/fopen all
-    // funnel through it before issuing the real syscall (confirmed against JingMatrix/LSPatch,
-    // which hooks only this one symbol for the same redirect purpose). One inline hook here covers
-    // the same ground as hooking those five public symbols individually, cutting the install/
-    // failure surface for the pure "redirect APK content reads" job down to LSPatch's footprint.
-    // access/readlink/realpath/stat family stay hooked individually below: those are independent
-    // syscalls that never go through __openat, and NPatch (unlike LSPatch) also spoofs their
-    // result for apps that stat/access their own APK natively instead of just reading it.
-    // Not every bionic revision is guaranteed to export this symbol dynamically, so resolution can
-    // fail; callers fall back to the previous per-symbol family when it does, never losing coverage.
-    using InternalOpenAtFn = int (*)(int, const char*, int, int);
-    static InternalOpenAtFn openat_chokepoint_backup = nullptr;
-    static bool openat_chokepoint_hook_installed = false;
-
-    static void* resolve_openat_chokepoint() {
-        static void* const cached = [] () -> void* {
-            vector::native::ElfImage libc("libc.so");
-            return libc.IsValid() ? libc.getSymbAddress<void*>("__openat") : nullptr;
-        }();
-        return cached;
-    }
-
-    static int hooked_openat_chokepoint(int dirfd, const char* pathname, int flags, int mode) {
-        const void* caller_pc = __builtin_return_address(0);
-        const char* redirected_path = pathname;
-
-        if (!g_openat_reentry) {
-            g_openat_reentry = true;
-            if (is_read_only_open(flags)) {
-                int sanitized_fd = open_sanitized_proc_file(pathname, caller_pc);
-                if (sanitized_fd >= 0) {
-                    LOGD("SigBypass: Serve sanitized __openat for {}", pathname);
-                    g_openat_reentry = false;
-                    return sanitized_fd;
-                }
-            }
-            const char* candidate = resolve_redirect_path(pathname);
-            if (candidate != pathname && candidate != nullptr
-                    && should_redirect_apk_contents(caller_pc)) {
-                redirected_path = candidate;
-                LOGD("SigBypass: Redirecting __openat('{}') -> '{}'", pathname, redirected_path);
-            }
-            g_openat_reentry = false;
-        }
-
-        if (openat_chokepoint_backup == nullptr) {
-            errno = ENOSYS;
-            return -1;
-        }
-        return openat_chokepoint_backup(dirfd, redirected_path, flags, mode);
-    }
-
-    static bool install_openat_chokepoint_hook() {
-#if defined(__aarch64__)
-        // A thread already in __openat's syscall can return into Dobby's 16-byte
-        // entry patch. Keep the syscall wrapper intact and hook its public callers.
-        LOGI("SigBypass: using public file-open hooks to preserve ARM64 syscall returns");
-        return false;
-#endif
-        if (openat_chokepoint_hook_installed) {
-            return true;
-        }
-        void* target = resolve_openat_chokepoint();
-        if (target == nullptr) {
-            LOGW("SigBypass: __openat chokepoint not resolved on this bionic revision, "
-                 "falling back to per-symbol hooks");
-            return false;
-        }
-        if (HookInline(target, reinterpret_cast<void*>(hooked_openat_chokepoint),
-                       reinterpret_cast<void**>(&openat_chokepoint_backup)) != 0) {
-            LOGW("SigBypass: failed to install __openat chokepoint hook, "
-                 "falling back to per-symbol hooks");
-            return false;
-        }
-        openat_chokepoint_hook_installed = true;
-        LOGI("SigBypass: native APK redirect installed via __openat chokepoint");
-        return true;
-    }
-
     static void enable_openat_hook_impl(JNIEnv* env,
                                         jstring jOrigApkPath,
                                         jstring jCacheApkPath,
@@ -1740,6 +1690,7 @@ namespace lspd {
         bool open_ok = true;
         bool open64_ok = true;
         bool open2_ok = true;
+        bool openat2_ok = true;
         bool access_ok = true;
         bool readlink_ok = true;
         bool readlinkat_ok = true;
@@ -1760,30 +1711,29 @@ namespace lspd {
         // dl_iterate_phdr for hideLibs, which is an unrelated concern.
         if (!skip_openat_redirect) {
             if (!minimal_file_hook_mode) {
-                // LSPatch-style single chokepoint first; falls back to the five hooks it replaces
-                // if __openat couldn't be resolved on this bionic revision (see the function's own
-                // doc comment above for why only these five, not the stat/access family, apply).
-                if (!install_openat_chokepoint_hook()) {
-                    openat_ok = install_openat_hook("openat", hooked_openat,
-                                                    &openat_target, &openat_backup,
-                                                    &openat_hook_installed);
-                    void* openat64_symbol = dlsym(RTLD_DEFAULT, "openat64");
-                    if (openat64_symbol != nullptr && openat64_symbol != openat_target) {
-                        openat64_ok = install_openat_hook("openat64", hooked_openat64,
-                                                          &openat64_target, &openat64_backup,
-                                                          &openat64_hook_installed);
-                    }
-                    open_ok = install_open_hook("open", hooked_open,
-                                                &open_target, &open_backup,
-                                                &open_hook_installed);
-                    void* open64_symbol = dlsym(RTLD_DEFAULT, "open64");
-                    if (open64_symbol != nullptr && open64_symbol != open_target) {
-                        open64_ok = install_open_hook("open64", hooked_open64,
-                                                      &open64_target, &open64_backup,
-                                                      &open64_hook_installed);
-                    }
-                    fopen_ok = install_fopen_hook();
+                openat_ok = install_openat_hook("openat", hooked_openat,
+                                                &openat_target, &openat_backup,
+                                                &openat_hook_installed);
+                void* openat64_symbol = dlsym(RTLD_DEFAULT, "openat64");
+                if (openat64_symbol != nullptr && openat64_symbol != openat_target) {
+                    openat64_ok = install_openat_hook("openat64", hooked_openat64,
+                                                      &openat64_target, &openat64_backup,
+                                                      &openat64_hook_installed);
                 }
+                open_ok = install_open_hook("open", hooked_open,
+                                            &open_target, &open_backup,
+                                            &open_hook_installed);
+                void* open64_symbol = dlsym(RTLD_DEFAULT, "open64");
+                if (open64_symbol != nullptr && open64_symbol != open_target) {
+                    open64_ok = install_open_hook("open64", hooked_open64,
+                                                  &open64_target, &open64_backup,
+                                                  &open64_hook_installed);
+                }
+                fopen_ok = install_fopen_hook();
+                open2_ok = install_open2_hook();
+                openat2_ok = install_plain_hook("__openat_2", reinterpret_cast<void*>(hooked___openat_2),
+                                                &__openat_2_target, &__openat_2_backup,
+                                                &__openat_2_hook_installed);
             } else {
                 // Keep 360-like protectors on the old openat-only APK redirect path,
                 // but still provide a narrow maps view for fd/inode consistency checks.
@@ -1833,8 +1783,7 @@ namespace lspd {
         }
 
         if (!skip_openat_redirect
-            && !openat_ok && !openat64_ok && !open_ok && !open64_ok && !open2_ok
-            && !openat_chokepoint_hook_installed
+            && !openat_ok && !openat64_ok && !open_ok && !open64_ok && !open2_ok && !openat2_ok
             && !access_ok && !readlink_ok && !readlinkat_ok && !realpath_ok
             && !stat_ok && !lstat_ok && !stat64_ok && !lstat64_ok
             && !statfs_ok && !statx_ok && !fopen_ok

@@ -59,16 +59,15 @@ import top.nkbe.npatch.ui.component.NPatchScaffold
 import top.nkbe.npatch.ui.component.AppUpdatePreferences
 import top.nkbe.npatch.ui.util.LocalSnackbarHost
 import top.nkbe.npatch.util.LINE_PACKAGE_NAME
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.nkbe.npatch.ui.component.NPatchTopAppBar
 import top.nkbe.npatch.ui.component.GlassCard
 import top.nkbe.npatch.ui.component.GlassDialog
+import top.nkbe.npatch.ui.component.GlassDialogActions
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
@@ -534,57 +533,47 @@ private fun KeyStore() {
 
                 Spacer(Modifier.height(8.dp))
 
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    TextButton(
-                        text = stringResource(android.R.string.cancel),
-                        onClick = dismissDialog,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Spacer(Modifier.width(20.dp))
-                    TextButton(
-                        text = stringResource(android.R.string.ok),
-                        onClick = {
-                            wrongKeystore = false
-                            wrongPassword = false
-                            wrongAliasName = false
-                            wrongAliasPassword = false
+                GlassDialogActions(
+                    dismissText = stringResource(android.R.string.cancel),
+                    onDismiss = dismissDialog,
+                    confirmText = stringResource(android.R.string.ok),
+                    onConfirm = confirm@{
+                        wrongKeystore = false
+                        wrongPassword = false
+                        wrongAliasName = false
+                        wrongAliasPassword = false
 
-                            if (path.isEmpty()) {
-                                wrongKeystore = true
-                                return@TextButton
+                        if (path.isEmpty()) {
+                            wrongKeystore = true
+                            return@confirm
+                        }
+                        val keyStore = KeyStore.getInstance("BKS")
+                        try {
+                            MyKeyStore.tmpFile.inputStream().use { input ->
+                                keyStore.load(input, password.toCharArray())
                             }
-                            val keyStore = KeyStore.getInstance("BKS")
-                            try {
-                                MyKeyStore.tmpFile.inputStream().use { input ->
-                                    keyStore.load(input, password.toCharArray())
-                                }
-                            } catch (e: IOException) {
-                                wrongKeystore = true
-                                if (e.message == "KeyStore integrity check failed.") {
-                                    wrongPassword = true
-                                }
-                                return@TextButton
+                        } catch (e: IOException) {
+                            wrongKeystore = true
+                            if (e.message == "KeyStore integrity check failed.") {
+                                wrongPassword = true
                             }
-                            if (!keyStore.containsAlias(alias)) {
-                                wrongAliasName = true
-                                return@TextButton
-                            }
-                            try {
-                                keyStore.getKey(alias, aliasPassword.toCharArray())
-                            } catch (e: GeneralSecurityException) {
-                                wrongAliasPassword = true
-                                return@TextButton
-                            }
+                            return@confirm
+                        }
+                        if (!keyStore.containsAlias(alias)) {
+                            wrongAliasName = true
+                            return@confirm
+                        }
+                        try {
+                            keyStore.getKey(alias, aliasPassword.toCharArray())
+                        } catch (e: GeneralSecurityException) {
+                            wrongAliasPassword = true
+                            return@confirm
+                        }
 
-                            scope.launch { MyKeyStore.setCustom(password, alias, aliasPassword) }
-                            showDialog.value = false
-                        },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.textButtonColors(),
-                    )
-                }
+                        scope.launch { MyKeyStore.setCustom(password, alias, aliasPassword) }
+                        showDialog.value = false
+                    },
+                )
             }
         }
     }
@@ -726,26 +715,15 @@ private fun ProxyVersionSettings() {
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                TextButton(
-                    text = stringResource(android.R.string.cancel),
-                    onClick = { showEditDialog.value = false },
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(16.dp))
-                TextButton(
-                    text = stringResource(android.R.string.ok),
-                    onClick = {
-                        Configs.customLineVersionCode = tempVersionCode.trim()
-                        showEditDialog.value = false
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.textButtonColors(),
-                )
-            }
+            GlassDialogActions(
+                dismissText = stringResource(android.R.string.cancel),
+                onDismiss = { showEditDialog.value = false },
+                confirmText = stringResource(android.R.string.ok),
+                onConfirm = {
+                    Configs.customLineVersionCode = tempVersionCode.trim()
+                    showEditDialog.value = false
+                },
+            )
         }
     }
 }
@@ -796,29 +774,18 @@ private fun ProxyCachePreference() {
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.padding(bottom = 12.dp),
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                TextButton(
-                    text = stringResource(android.R.string.cancel),
-                    onClick = { showConfirmDialog.value = false },
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(16.dp))
-                TextButton(
-                    text = stringResource(android.R.string.ok),
-                    onClick = {
-                        showConfirmDialog.value = false
-                        scope.launch {
-                            withContext(Dispatchers.IO) { ApkProxyService.clearCache(context) }
-                            refreshKey++
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.textButtonColors(),
-                )
-            }
+            GlassDialogActions(
+                dismissText = stringResource(android.R.string.cancel),
+                onDismiss = { showConfirmDialog.value = false },
+                confirmText = stringResource(android.R.string.ok),
+                onConfirm = {
+                    showConfirmDialog.value = false
+                    scope.launch {
+                        withContext(Dispatchers.IO) { ApkProxyService.clearCache(context) }
+                        refreshKey++
+                    }
+                },
+            )
         }
     }
 }

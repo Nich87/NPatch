@@ -34,6 +34,7 @@ import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import coil.compose.AsyncImage
+import nkbe.util.ShizukuApi
 import top.nkbe.npatch.LSPApplication
 import top.nkbe.npatch.config.Configs
 import top.nkbe.npatch.config.ThemeConfig
@@ -58,6 +59,16 @@ import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 class MainActivity : ComponentActivity() {
+
+    override fun onResume() {
+        super.onResume()
+        ShizukuApi.onManagerResumed()
+    }
+
+    override fun onPause() {
+        ShizukuApi.onManagerPaused()
+        super.onPause()
+    }
 
     override fun onStart() {
         super.onStart()

@@ -58,6 +58,7 @@ import top.yukonga.miuix.kmp.basic.SnackbarResult
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.nkbe.npatch.ui.component.GlassDialog
+import top.nkbe.npatch.ui.component.GlassDialogActions
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private const val TAG = "NewPatchPage"
@@ -368,22 +369,12 @@ fun UninstallConfirmationDialog(
                 text = stringResource(R.string.patch_uninstall_text),
                 modifier = Modifier.padding(bottom = 16.dp),
             )
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                TextButton(
-                    text = stringResource(android.R.string.cancel),
-                    onClick = { show.value = false; onDismiss() },
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(20.dp))
-                TextButton(
-                    text = stringResource(android.R.string.ok),
-                    onClick = { show.value = false; onConfirm() },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.textButtonColors(),
-                )
-            }
+            GlassDialogActions(
+                dismissText = stringResource(android.R.string.cancel),
+                onDismiss = { show.value = false; onDismiss() },
+                confirmText = stringResource(android.R.string.ok),
+                onConfirm = { show.value = false; onConfirm() },
+            )
         }
     }
 }
