@@ -2,6 +2,8 @@ package top.nkbe.npatch
 
 import android.content.pm.PackageManager
 import android.provider.DocumentsContract
+import android.system.Os
+import android.system.StructStat
 import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -42,16 +44,24 @@ class PatchExportFlowTest {
         val originalPreset = Configs.keyStorePreset
         val originalTargets = lspApp.targetApkFiles
         val originalTemporaryFiles = lspApp.tmpApkDir.listFiles().orEmpty().toSet()
-        val cache = lspApp.externalCacheDir ?: lspApp.cacheDir
+        val cache = lspApp.cacheDir
         val installRoot = File(cache, "npatch-install")
         val backupRoot = File(cache, "export-test-backup-${UUID.randomUUID()}")
         val hadInstallRoot = installRoot.exists()
         if (hadInstallRoot) {
             assertTrue("Preserve existing install cache", installRoot.renameTo(backupRoot))
         }
+        var generatedOutput: StructStat? = null
+        var generatedAtNanos = 0L
         val logger = object : Logger() {
             override fun d(msg: String) { Log.d(TAG, msg) }
-            override fun i(msg: String) { Log.i(TAG, msg) }
+            override fun i(msg: String) {
+                if (msg.startsWith("Done. Output APK: ")) {
+                    generatedOutput = Os.stat(msg.removePrefix("Done. Output APK: "))
+                    generatedAtNanos = System.nanoTime()
+                }
+                Log.i(TAG, msg)
+            }
             override fun e(msg: String) { Log.e(TAG, msg) }
         }
         try {
@@ -86,7 +96,8 @@ class PatchExportFlowTest {
                         Patcher.Options(
                             newPackageName = packageName,
                             config = config,
-                            apkPaths = listOf(instrumentation.context.applicationInfo.sourceDir),
+                            apkPaths = listOf(InstrumentationRegistry.getArguments().getString("inputApkPath")
+                                ?: instrumentation.context.applicationInfo.sourceDir),
                             embeddedModules = emptyList(),
                         ),
                     )
@@ -112,6 +123,11 @@ class PatchExportFlowTest {
             assertEquals(1, outputs.size)
             val output = outputs.single()
             assertTrue("Installable output must survive failed export", output.isFile && output.length() > 0)
+            val promotedOutput = Os.stat(output.path)
+            val generated = requireNotNull(generatedOutput) { "Observe the generated APK before promotion" }
+            Log.i(TAG, "Output promotion and denied export: ${(System.nanoTime() - generatedAtNanos) / 1_000_000} ms, ${output.length()} bytes")
+            assertEquals("Promotion must keep the APK on the same filesystem", generated.st_dev, promotedOutput.st_dev)
+            assertEquals("Promotion must move the APK without copying its bytes", generated.st_ino, promotedOutput.st_ino)
             val info = lspApp.packageManager.getPackageArchiveInfo(
                 output.path,
                 PackageManager.GET_SIGNING_CERTIFICATES,

@@ -130,7 +130,8 @@ object Patcher {
     }
 
     private val installSetRoot: File
-        get() = (lspApp.externalCacheDir ?: lspApp.cacheDir).resolve("npatch-install")
+        // Keep promotion on the patch output filesystem to avoid copying the entire APK.
+        get() = lspApp.cacheDir.resolve("npatch-install")
 
     /** 中断で残った一時 APK と生成物を消し、[preservedApkFiles] のインストールセットへ戻す。 */
     suspend fun discardArtifacts(preservedApkFiles: List<File>?) {
