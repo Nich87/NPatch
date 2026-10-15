@@ -1,5 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="patch_runtime_memory">メモリ</string>
+    <string name="patch_runtime_io">ストレージ I/O</string>
+    <string name="patch_runtime_cpu">CPU</string>
+    <string name="patch_output_size">出力サイズ</string>
+    <string name="patch_elapsed">処理時間</string>
+    <string name="patch_save_options">APK を保存</string>
+    <string name="patch_save_recovery">再保存・保存先の変更が可能です。\nインストールも可能です。</string>
+    <string name="patch_stop">中止</string>
+    <string name="patch_completed">パッチ完了</string>
+    <string name="patch_failed">パッチ失敗</string>
+    <string name="patch_save_retry">保存を再試行</string>
+    <string name="patch_save_again">APKを再保存</string>
+    <string name="patch_save_choose_directory">保存先を選択</string>
+    <string name="patch_saving">APKを保存中…</string>
+    <string name="patch_logs_copy">ログをコピー</string>
+    <string name="patch_logs_pause">ログの追従を停止</string>
+    <string name="patch_logs_latest">最新のログへ</string>
+    <string name="patch_result_notification_channel">パッチの結果</string>
+    <string name="patch_result_notification_success">パッチ完了</string>
+    <string name="patch_result_notification_failure">パッチ失敗</string>
+    <string name="patch_result_notification_success_text">%1$sをインストールできます。</string>
+    <string name="patch_result_notification_failure_text">%1$sのパッチに失敗しました。詳細はNPatchで確認できます。</string>
+    <string name="patch_result_notification_export_failed_text">%1$sのパッチは完了しましたが、選択したフォルダに保存できませんでした。</string>
     <string name="add">追加</string>
     <string name="install">インストール</string>
     <string name="installing">インストール中</string>
@@ -98,6 +121,7 @@
     <string name="patch_stage_modules">モジュールを埋め込み中…</string>
     <string name="patch_stage_metaloader">メタローダーを追加中…</string>
     <string name="patch_stage_writing">APKを書き出し中…</string>
+    <string name="patch_stage_signing">APKに署名中…</string>
     <string name="patch_stage_exporting">保存先に出力中…</string>
     <string name="patch_notification_channel">パッチ処理</string>
     <string name="patch_notification_title">パッチ処理中</string>

@@ -1,5 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="patch_runtime_memory">Memory</string>
+    <string name="patch_runtime_io">Storage I/O</string>
+    <string name="patch_runtime_cpu">CPU</string>
+    <string name="patch_output_size">Output size</string>
+    <string name="patch_elapsed">Elapsed</string>
+    <string name="patch_save_options">Save APK</string>
+    <string name="patch_save_recovery">Choose a folder or retry saving. The APK is ready to install.</string>
+    <string name="patch_stop">Stop</string>
+    <string name="patch_completed">Patch complete</string>
+    <string name="patch_failed">Patch failed</string>
+    <string name="patch_save_retry">Retry saving</string>
+    <string name="patch_save_again">Save APK again</string>
+    <string name="patch_save_choose_directory">Choose save folder</string>
+    <string name="patch_saving">Saving APK…</string>
+    <string name="patch_logs_copy">Copy logs</string>
+    <string name="patch_logs_pause">Pause following</string>
+    <string name="patch_logs_latest">Jump to latest</string>
+    <string name="patch_result_notification_channel">Patch results</string>
+    <string name="patch_result_notification_success">Patch complete</string>
+    <string name="patch_result_notification_failure">Patch failed</string>
+    <string name="patch_result_notification_success_text">%1$s is ready to install.</string>
+    <string name="patch_result_notification_failure_text">Could not patch %1$s. Open NPatch for details.</string>
+    <string name="patch_result_notification_export_failed_text">%1$s was patched, but could not be saved to the selected folder.</string>
     <string name="add">Add</string>
     <string name="install">Install</string>
     <string name="installing">Installing</string>
@@ -174,6 +197,7 @@
     <string name="patch_stage_modules">Embedding modules…</string>
     <string name="patch_stage_metaloader">Adding metaloader…</string>
     <string name="patch_stage_writing">Writing APK…</string>
+    <string name="patch_stage_signing">Signing APK…</string>
     <string name="patch_stage_exporting">Saving to storage…</string>
     <string name="patch_notification_channel">Patching</string>
     <string name="patch_notification_title">Patching</string>

@@ -2,6 +2,7 @@ package top.nkbe.npatch
 
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
@@ -75,55 +76,57 @@ object Patcher {
         }
     }
 
-    suspend fun patch(logger: Logger, options: Options) {
-        withContext(Dispatchers.IO) {
-            // Merging and repackaging peak close to the heap ceiling, so they run in the
-            // :patcher process. An OutOfMemoryError there kills that process instead of the
-            // manager, and the binder death is reported as a patch failure.
-            val orderedOutputs = PatcherClient.runInPatcherProcess(logger, options)
-            currentCoroutineContext().ensureActive()
+    data class PatchResult(val exportError: String? = null)
 
-            val uri = Configs.storageDirectory?.toUri()
-                ?: throw IOException("Uri is null")
-            val root = DocumentFile.fromTreeUri(lspApp, uri)
-                ?: throw IOException("DocumentFile is null")
-            val installDir = createInstallSetDirectory()
-            val apkFileList = orderedOutputs.map { tempApkFile ->
-                moveToInstallSet(tempApkFile, installDir.resolve(tempApkFile.name))
-            }
+    suspend fun patch(logger: Logger, options: Options): PatchResult = withContext(Dispatchers.IO) {
+        // Keep the active set available for cancellation rollback until the caller finishes.
+        val previous = lspApp.targetApkFiles.orEmpty().toList()
+        val preservedDirs = previous.mapNotNull { it.parentFile?.absoluteFile }.toSet()
+        installSetRoot.listFiles()?.filter { it.absoluteFile !in preservedDirs }
+            ?.forEach { it.deleteRecursively() }
+        val orderedOutputs = PatcherClient.runInPatcherProcess(logger, options)
+        currentCoroutineContext().ensureActive()
+        require(orderedOutputs.isNotEmpty()) { "APK set is empty" }
+        val installDir = createInstallSetDirectory()
+        val apkFiles = try {
+            orderedOutputs.map { source ->
+                currentCoroutineContext().ensureActive()
+                moveToInstallSet(source, installDir.resolve(source.name))
+            }.also { currentCoroutineContext().ensureActive() }
+        } catch (error: Throwable) {
+            installDir.deleteRecursively()
+            throw error
+        }
+        lspApp.targetApkFiles = ArrayList(apkFiles)
+        try {
+            exportPatchedApks(logger, options.newPackageName)
+            PatchResult()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            PatchResult(exportError = error.message ?: error.javaClass.simpleName)
+        }
+    }
 
-            logger.i("Exporting patched apk...")
+    suspend fun exportPatchedApks(logger: Logger, packageName: String) = withContext(Dispatchers.IO) {
+        val apkFiles = lspApp.targetApkFiles.orEmpty().toList()
+        require(apkFiles.isNotEmpty() && apkFiles.all(File::isFile)) { "Patched APK set is unavailable" }
+        val uri = Configs.storageDirectory?.toUri() ?: throw IOException("Uri is null")
+        val root = DocumentFile.fromTreeUri(lspApp, uri) ?: throw IOException("DocumentFile is null")
+        logger.i("Exporting patched apk...")
+        val outputName = if (apkFiles.size == 1) {
+            exportFile(root, apkFiles.first(), "application/vnd.android.package-archive", apkFiles.first().name)
+        } else {
+            val archiveName = buildArchiveName(packageName)
+            val localArchive = File.createTempFile("export-", ".tmp", apkFiles.first().parentFile)
             try {
-                if (apkFileList.size == 1) {
-                    val patchedApkFile = apkFileList.first()
-                    exportFile(
-                        root = root,
-                        source = patchedApkFile,
-                        mimeType = "application/vnd.android.package-archive",
-                        outputName = patchedApkFile.name,
-                    )
-                    logger.i("Patched apk is saved to ${root.uri.lastPathSegment}/${patchedApkFile.name}")
-                } else {
-                    val archiveName = buildArchiveName(options.newPackageName)
-                    val localArchive = installDir.resolve(archiveName + ".tmp")
-                    localArchive.outputStream().use { output ->
-                        createApksArchive(output, apkFileList)
-                    }
-                    exportFile(
-                        root = root,
-                        source = localArchive,
-                        mimeType = "application/octet-stream",
-                        outputName = archiveName,
-                    )
-                    localArchive.delete()
-                    logger.i("Patched archive is saved to ${root.uri.lastPathSegment}/$archiveName")
-                }
-                replaceInstallSet(apkFileList)
-            } catch (error: Throwable) {
-                installDir.deleteRecursively()
-                throw error
+                localArchive.outputStream().use { createApksArchive(it, apkFiles) }
+                exportFile(root, localArchive, "application/octet-stream", archiveName)
+            } finally {
+                localArchive.delete()
             }
         }
+        logger.i("Patched output is saved to ${root.uri.lastPathSegment}/$outputName")
     }
 
     private val installSetRoot: File
@@ -163,40 +166,22 @@ object Patcher {
         return destination
     }
 
-    private fun replaceInstallSet(apkFiles: List<File>) {
-        val previous = lspApp.targetApkFiles.orEmpty().toList()
-        val currentDirectory = apkFiles.first().parentFile?.absoluteFile
-        lspApp.targetApkFiles = ArrayList(apkFiles)
-        previous
-            .mapNotNull(File::getParentFile)
-            .map(File::getAbsoluteFile)
-            .filter { it != currentDirectory }
-            .distinct()
-            .forEach { directory ->
-                if (directory.parentFile?.name == "npatch-install") {
-                    directory.deleteRecursively()
-                }
-            }
-    }
-
     private suspend fun exportFile(
         root: DocumentFile,
         source: File,
         mimeType: String,
         outputName: String,
-    ) {
-        root.findFile(outputName)?.delete()
-        val destination = root.createFile(mimeType, outputName)
-            ?: throw IOException("Unable to create output file: $outputName")
-        try {
+    ): String = writeNewExport(
+        outputName = outputName,
+        existingNames = root.listFiles().mapNotNull { it.name }.toSet(),
+        create = { name -> root.createFile(mimeType, name) ?: throw IOException("Unable to create output file: $name") },
+        write = { destination ->
             lspApp.contentResolver.openOutputStream(destination.uri, "w")?.use { output ->
                 source.inputStream().use { input -> input.copyToCancellable(output) }
             } ?: throw IOException("Unable to open an output stream: ${destination.uri}")
-        } catch (error: Throwable) {
-            destination.delete()
-            throw error
-        }
-    }
+        },
+        delete = { it.delete() },
+    )
 
     private fun buildArchiveName(packageName: String): String {
         return packageName.replace(Regex("[\\\\/:*?\"<>|]"), "_") + Constants.PATCH_ARCHIVE_SUFFIX
