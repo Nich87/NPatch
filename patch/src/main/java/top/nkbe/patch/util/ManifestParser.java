@@ -2,15 +2,10 @@ package top.nkbe.npatch.patch.util;
 
 import com.wind.meditor.utils.Utils;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipException;
-import java.util.zip.ZipFile;
 
 import pxb.android.axml.AxmlParser;
 
@@ -116,8 +111,6 @@ public class ManifestParser {
                             isolatedOrMultiProcessComponents.add(desc);
                         }
                     }
-                } else if (type == AxmlParser.END_TAG) {
-                    // ignored
                 }
             }
         } catch (Exception e) {
@@ -130,29 +123,6 @@ public class ManifestParser {
         pair.setAuthorities(authorities);
         pair.setIsolatedOrMultiProcessComponents(isolatedOrMultiProcessComponents);
         return pair;
-    }
-
-    /**
-     * Get the package name and the main application name from the manifest file or APK
-     */
-    public static Pair parseManifestFile(String filePath) throws IOException {
-        File file = new File(filePath);
-        if (!file.exists()) {
-            return null;
-        }
-        try (ZipFile zipFile = new ZipFile(file)) {
-            ZipEntry manifestEntry = zipFile.getEntry("AndroidManifest.xml");
-            if (manifestEntry != null) {
-                try (InputStream is = zipFile.getInputStream(manifestEntry)) {
-                    return parseManifestFile(is);
-                }
-            }
-        } catch (ZipException ignored) {
-            // Not a zip/apk file, fallback to treating as standalone binary XML
-        }
-        try (var is = new FileInputStream(file)) {
-            return parseManifestFile(is);
-        }
     }
 
     public static class Pair {
@@ -184,10 +154,6 @@ public class ManifestParser {
             }
         }
 
-        public Pair(String packageName, String appComponentFactory, int minSdkVersion) {
-            this(packageName, null, appComponentFactory, minSdkVersion);
-        }
-
         public Pair(String packageName, String splitName, String appComponentFactory, int minSdkVersion) {
             this.packageName = packageName;
             this.splitName = splitName;
@@ -195,24 +161,12 @@ public class ManifestParser {
             this.minSdkVersion = minSdkVersion;
         }
 
-        public List<String> getPermissions() {
-            return permissions;
-        }
-
         public void setPermissions(List<String> permissions) {
             this.permissions = permissions;
         }
 
-        public List<String> getUse_permissions() {
-            return use_permissions;
-        }
-
         public void setUse_permissions(List<String> use_permissions) {
             this.use_permissions = use_permissions;
-        }
-
-        public List<String> getAuthorities() {
-            return authorities;
         }
 
         public void setAuthorities(List<String> authorities) {
