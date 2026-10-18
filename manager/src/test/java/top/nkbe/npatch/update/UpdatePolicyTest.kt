@@ -20,8 +20,8 @@ class UpdatePolicyTest {
     private fun asset(name: String, url: String = "https://github.com/Nich87/NPatch/releases/download/v1.2.0/$name", size: Long = 1234) =
         """{"name":"$name","browser_download_url":"$url","size":$size,"digest":null}"""
 
-    private fun release(vararg assets: String, prerelease: Boolean = false, draft: Boolean = false) =
-        """{"tag_name":"v1.2.0","body":"Changes","prerelease":$prerelease,"draft":$draft,"assets":[${assets.joinToString(",") }]}"""
+    private fun release(vararg assets: String, prerelease: Boolean = false, draft: Boolean = false, version: String = "1.2.0") =
+        """{"tag_name":"v$version","body":"Changes","prerelease":$prerelease,"draft":$draft,"assets":[${assets.joinToString(",") }]}"""
 
     @Test fun selectCorrectBuildAndAllowReleaseFallbackForDebug() {
         val stable = asset("NPatch-v1.2.0-20-release.apk")
@@ -48,6 +48,34 @@ class UpdatePolicyTest {
         rejects(release(valid, asset("NPatch-v1.2.0-21-release.apk")))
         rejects(release(valid, prerelease = true))
         rejects(release(valid, draft = true))
+    }
+
+    @Test fun prereleasesRequireOptInEvenWhenReadingCachedRelease() {
+        val json = release(asset("NPatch-v1.2.0-rc1-21-release.apk"), prerelease = true, version = "1.2.0-rc1")
+        assertEquals("1.2.0-rc1", UpdatePolicy.parseLatestRelease(json, false, includePrereleases = true)?.version)
+        assertNull(UpdatePolicy.parseLatestRelease(json, false))
+        val draft = release(asset("NPatch-v1.2.0-20-release.apk"), prerelease = true, draft = true)
+        assertNull(UpdatePolicy.parseLatestRelease(draft, false, includePrereleases = true))
+    }
+
+    @Test fun newestCompatibleReleaseWinsRegardlessOfApiOrder() {
+        val stable = release(asset("NPatch-v1.2.0-20-release.apk"))
+        val rc2 = release(asset("NPatch-v1.3.0-rc2-22-release.apk"), prerelease = true, version = "1.3.0-rc2")
+        val rc10 = release(asset("NPatch-v1.3.0-rc10-30-release.apk"), prerelease = true, version = "1.3.0-rc10")
+        val feed = "[$rc2,$stable,$rc10]"
+        assertEquals("1.2.0", UpdatePolicy.parseLatestRelease(feed, false)?.version)
+        assertEquals("1.3.0-rc10", UpdatePolicy.parseLatestRelease(feed, false, includePrereleases = true)?.version)
+        val final = release(asset("NPatch-v1.3.0-31-release.apk"), version = "1.3.0")
+        assertEquals("1.3.0", UpdatePolicy.parseLatestRelease("[$rc10,$final]", false, includePrereleases = true)?.version)
+    }
+
+    @Test fun skipDraftsMissingApksAndUntrustedAssetsInReleaseFeed() {
+        val stable = release(asset("NPatch-v1.2.0-20-release.apk"))
+        val draft = release(asset("NPatch-v2.0.0-50-release.apk"), draft = true, version = "2.0.0")
+        val untrusted = release(asset("NPatch-v3.0.0-60-release.apk", "https://example.com/app.apk"), version = "3.0.0")
+        val missing = release(version = "4.0.0")
+        assertEquals("1.2.0", UpdatePolicy.parseLatestRelease("[$draft,$untrusted,$missing,{},$stable]", false, includePrereleases = true)?.version)
+        assertNull(UpdatePolicy.parseLatestRelease("[]", false, includePrereleases = true))
     }
 
     private fun rejects(json: String) {

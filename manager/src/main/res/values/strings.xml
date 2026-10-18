@@ -211,6 +211,8 @@
     <string name="settings_proxy_cache_clear_desc">Deletes the LINE APKs downloaded from Proxy. They will be downloaded again on the next patch.</string>
     <string name="app_update_automatic">Automatically check for updates</string>
     <string name="app_update_automatic_summary">Check for a new NPatch release whenever you open the app</string>
+    <string name="app_update_include_prereleases">Include NPatch pre-releases</string>
+    <string name="app_update_include_prereleases_summary">Include beta and release candidate versions when checking for NPatch updates</string>
     <string name="app_update_check">Check for updates</string>
     <string name="app_update_available_summary">Update to NPatch %1$s</string>
     <string name="app_update_checking">Checking for updates…</string>
@@ -218,7 +220,7 @@
     <string name="app_update_available">NPatch %1$s is available</string>
     <string name="app_update_open">View changes and update</string>
     <string name="app_update_current">You are running the latest version</string>
-    <string name="app_update_no_release">No published stable release is available</string>
+    <string name="app_update_no_release">No compatible published release is available</string>
     <string name="app_update_check_failed">Could not check for updates. Check your connection and try again.</string>
     <string name="app_update_version_unknown">This build has no comparable release version.</string>
     <string name="app_update_no_notes">No release notes provided.</string>
