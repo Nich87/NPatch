@@ -51,14 +51,6 @@ object ModuleScopeSyncStore {
             }
         }
 
-    suspend fun syncModuleScopes(modulePackageNames: Collection<String>) =
-        withContext(Dispatchers.IO) {
-            if (!nkbe.util.ShizukuApi.isReady) return@withContext
-            modulePackageNames.distinct().forEach { modulePackageName ->
-                ModuleActivationController.activate(modulePackageName)
-            }
-        }
-
     private fun trackedModulePackages(): List<String> {
         val dir = snapshotDir()
         return dir.listFiles()

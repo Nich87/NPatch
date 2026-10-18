@@ -36,9 +36,6 @@ object Patcher {
         internal val inputApks: List<File>
             get() = apkPaths.map { File(it).absoluteFile }
 
-        fun toStringArray(inputApks: List<File> = apkPaths.map { File(it).absoluteFile }): Array<String> =
-            configArgs() + inputApks.map { it.absolutePath }
-
         /** Patcher CLI arguments without the trailing input paths, which the merge may replace. */
         fun configArgs(): Array<String> {
             return buildList {

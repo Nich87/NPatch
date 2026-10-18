@@ -293,13 +293,6 @@ class NewPatchViewModel : ViewModel() {
         hasExecutedIntent = false
     }
 
-    fun setUseManager(value: Boolean) {
-        useManager = value
-        if (!value && sigBypassLevel > Constants.SIGBYPASS_HIGH) {
-            sigBypassLevel = Constants.SIGBYPASS_HIGH
-        }
-    }
-
     private fun doneInit() {
         patchState = PatchState.SELECTING
     }
