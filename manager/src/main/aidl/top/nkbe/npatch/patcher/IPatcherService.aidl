@@ -1,6 +1,7 @@
 package top.nkbe.npatch.patcher;
 
 import top.nkbe.npatch.patcher.IPatcherCallback;
+import top.nkbe.npatch.util.ProcessRuntimeSnapshot;
 
 /** Runs the patch in the :patcher process so its memory is not shared with the manager UI. */
 interface IPatcherService {
@@ -19,4 +20,6 @@ interface IPatcherService {
         IPatcherCallback callback);
 
     void abort();
+
+    ProcessRuntimeSnapshot getRuntimeSnapshot();
 }

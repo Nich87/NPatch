@@ -11,6 +11,7 @@ import top.nkbe.npatch.lspApp
 import top.nkbe.npatch.patch.NPatch
 import top.nkbe.npatch.patch.util.Logger
 import top.nkbe.npatch.share.Constants
+import top.nkbe.npatch.util.readProcessRuntimeSnapshot
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.Executors
@@ -45,6 +46,8 @@ class PatcherService : Service() {
             Log.i(TAG, "Aborting patch, ending the patcher process")
             Process.killProcess(Process.myPid())
         }
+
+        override fun getRuntimeSnapshot() = readProcessRuntimeSnapshot()
     }
 
     private fun runPatch(

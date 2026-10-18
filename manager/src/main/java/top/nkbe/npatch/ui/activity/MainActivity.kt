@@ -20,7 +20,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -30,8 +29,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import coil.compose.AsyncImage
 import nkbe.util.ShizukuApi
@@ -72,7 +71,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        top.nkbe.npatch.service.PatchForegroundService.setManagerVisible(this, true)
         if (Configs.welcomeSeen) AppUpdater.check(automatic = true)
+    }
+
+    override fun onStop() {
+        top.nkbe.npatch.service.PatchForegroundService.setManagerVisible(this, false)
+        super.onStop()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -186,7 +191,7 @@ class MainActivity : ComponentActivity() {
                         val startRoute = remember {
                             if (Configs.welcomeSeen) Route.Main() else Route.Welcome()
                         }
-                        val backStack = remember { mutableStateListOf<NavKey>(startRoute) }
+                        val backStack = rememberNavBackStack(startRoute)
                         val navigator = remember { Navigator(backStack) }
                         val startMainRoute = startRoute as? Route.Main
                         var selectedMainTab by rememberSaveable {

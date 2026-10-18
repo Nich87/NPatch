@@ -36,6 +36,10 @@ class PatchForegroundService : Service() {
             startForeground(NOTIFICATION_ID, notification)
         }
         running = true
+        if (stopRequested) {
+            running = false
+            stopSelf()
+        }
         return START_NOT_STICKY
     }
 
@@ -47,16 +51,26 @@ class PatchForegroundService : Service() {
     companion object {
         private const val CHANNEL_ID = "patch_progress"
         private const val NOTIFICATION_ID = 1001
+        private const val COMPLETION_CHANNEL_ID = "patch_completion"
+        private const val COMPLETION_NOTIFICATION_ID = 1002
+
+        @Volatile
+        private var managerVisible = false
 
         @Volatile
         private var running = false
+
+        @Volatile
+        private var stopRequested = false
 
         @Volatile
         private var progressText = ""
 
         fun start(context: Context, progress: String) {
             progressText = progress
+            stopRequested = false
             runCatching {
+                NotificationManagerCompat.from(context).cancel(COMPLETION_NOTIFICATION_ID)
                 ContextCompat.startForegroundService(
                     context,
                     Intent(context, PatchForegroundService::class.java),
@@ -66,13 +80,7 @@ class PatchForegroundService : Service() {
 
         fun updateProgress(context: Context, progress: String) {
             progressText = progress
-            if (!running) return
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-                PackageManager.PERMISSION_GRANTED
-            ) {
-                return
-            }
+            if (!running || !canPostNotifications(context)) return
             createNotificationChannel(context)
             runCatching {
                 NotificationManagerCompat.from(context)
@@ -81,12 +89,78 @@ class PatchForegroundService : Service() {
         }
 
         fun stop(context: Context) {
-            running = false
+            stopRequested = true
             progressText = ""
             runCatching {
-                context.stopService(Intent(context, PatchForegroundService::class.java))
+                if (running) {
+                    running = false
+                    context.stopService(Intent(context, PatchForegroundService::class.java))
+                }
+                NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
             }
         }
+
+        fun setManagerVisible(context: Context, visible: Boolean) {
+            managerVisible = visible
+            if (visible) NotificationManagerCompat.from(context).cancel(COMPLETION_NOTIFICATION_ID)
+        }
+
+        fun complete(
+            context: Context,
+            succeeded: Boolean,
+            appLabel: String,
+            exportFailed: Boolean = false,
+        ) {
+            stop(context)
+            if (managerVisible || !canPostNotifications(context)) return
+            val manager = context.getSystemService<NotificationManager>() ?: return
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    COMPLETION_CHANNEL_ID,
+                    context.getString(R.string.patch_result_notification_channel),
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ),
+            )
+            val title = if (succeeded) {
+                R.string.patch_result_notification_success
+            } else {
+                R.string.patch_result_notification_failure
+            }
+            val text = when {
+                !succeeded -> R.string.patch_result_notification_failure_text
+                exportFailed -> R.string.patch_result_notification_export_failed_text
+                else -> R.string.patch_result_notification_success_text
+            }
+            val intent = Intent(context, MainActivity::class.java).addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP,
+            )
+            val notification = NotificationCompat.Builder(context, COMPLETION_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_launcher_monochrome)
+                .setContentTitle(context.getString(title))
+                .setContentText(context.getString(text, appLabel))
+                .setStyle(NotificationCompat.BigTextStyle().bigText(context.getString(text, appLabel)))
+                .setContentIntent(
+                    PendingIntent.getActivity(
+                        context,
+                        COMPLETION_NOTIFICATION_ID,
+                        intent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                    ),
+                )
+                .setAutoCancel(true)
+                .build()
+            try {
+                NotificationManagerCompat.from(context).notify(COMPLETION_NOTIFICATION_ID, notification)
+            } catch (_: SecurityException) {
+                // Notification permission can be revoked after the check.
+            }
+        }
+
+        private fun canPostNotifications(context: Context): Boolean =
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
 
         private fun createNotificationChannel(context: Context) {
             val manager = context.getSystemService<NotificationManager>() ?: return
