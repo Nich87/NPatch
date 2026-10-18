@@ -69,6 +69,7 @@ fun AppUpdatePreferences() {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var automatic by remember { mutableStateOf(AppUpdater.automaticChecks) }
     var background by remember { mutableStateOf(AppUpdater.backgroundChecks) }
+    var includePrereleases by remember { mutableStateOf(AppUpdater.includePrereleases) }
     var notificationsAllowed by remember { mutableStateOf(UpdateNotifications.allowed(context)) }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         notificationsAllowed = UpdateNotifications.allowed(context)
@@ -106,6 +107,13 @@ fun AppUpdatePreferences() {
             onClick = { context.startActivity(UpdateNotifications.settingsIntent(context)) },
         )
     }
+    SwitchPreference(
+        title = stringResource(R.string.app_update_include_prereleases),
+        summary = stringResource(R.string.app_update_include_prereleases_summary),
+        checked = includePrereleases,
+        enabled = !state.checking && !state.downloading && !state.installing,
+        onCheckedChange = { includePrereleases = it; AppUpdater.includePrereleases = it },
+    )
     AppUpdatePreference(state, onCheck = { AppUpdater.check() }, onOpen = { AppUpdater.openDetails() })
 }
 

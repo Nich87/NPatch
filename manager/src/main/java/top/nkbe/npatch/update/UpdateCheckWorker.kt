@@ -15,10 +15,11 @@ import java.util.concurrent.TimeUnit
 class UpdateCheckWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result {
         if (!AppUpdater.backgroundChecks) return Result.success()
+        val includePrereleases = AppUpdater.includePrereleases
         return try {
-            val release = AppUpdater.fetchLatest()
+            val release = AppUpdater.fetchLatest(includePrereleases)
             // Recheck the preference after the network request, in case it was disabled meanwhile.
-            if (AppUpdater.backgroundChecks) {
+            if (AppUpdater.backgroundChecks && includePrereleases == AppUpdater.includePrereleases) {
                 UpdateNotifications.notify(applicationContext, release)
             }
             Result.success()

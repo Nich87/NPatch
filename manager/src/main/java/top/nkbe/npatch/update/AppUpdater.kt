@@ -70,25 +70,39 @@ object AppUpdater {
             UpdateCheckWorker.schedule(lspApp)
         }
 
+    var includePrereleases: Boolean
+        get() = preferences.getBoolean("include_prereleases", false)
+        set(value) {
+            if (value == includePrereleases) return
+            preferences.edit().putBoolean("include_prereleases", value)
+                .remove("release_json").remove("notified_version").apply()
+            mutableState.value = UpdateState()
+            UpdateNotifications.dismiss(lspApp)
+        }
+
     private fun cachedRelease(): UpdateRelease? = runCatching {
         val json = preferences.getString("release_json", null) ?: return null
-        UpdatePolicy.parseRelease(json, BuildConfig.DEBUG).takeIf {
+        UpdatePolicy.parseLatestRelease(json, BuildConfig.DEBUG, includePrereleases)?.takeIf {
             UpdatePolicy.compare(it.version, BuildConfig.VERSION_NAME)?.let { order -> order > 0 } == true
         }
     }.getOrNull()
 
     /** Shared by foreground checks and WorkManager; never opens an Activity. */
-    internal suspend fun fetchLatest(): UpdateRelease = withContext(Dispatchers.IO) {
+    internal suspend fun fetchLatest(includePrereleases: Boolean = this.includePrereleases): UpdateRelease = withContext(Dispatchers.IO) {
+        val endpoint = if (includePrereleases) "releases?per_page=100" else "releases/latest"
         client().newCall(Request.Builder()
-            .url("https://api.github.com/repos/Nich87/NPatch/releases/latest")
+            .url("https://api.github.com/repos/Nich87/NPatch/$endpoint")
             .header("Accept", "application/vnd.github+json")
             .header("User-Agent", "NPatch-Manager")
             .build()).execute().use { response ->
             if (response.code == 404) throw UpdateError(R.string.app_update_no_release)
             if (!response.isSuccessful) throw UpdateError(R.string.app_update_check_failed)
             val json = response.body.string()
-            val release = UpdatePolicy.parseRelease(json, BuildConfig.DEBUG)
-            preferences.edit().putString("release_json", json).apply()
+            val release = UpdatePolicy.parseLatestRelease(json, BuildConfig.DEBUG, includePrereleases)
+                ?: throw UpdateError(R.string.app_update_no_release)
+            if (includePrereleases == this@AppUpdater.includePrereleases) {
+                preferences.edit().putString("release_json", json).apply()
+            }
             release
         }
     }
@@ -98,10 +112,12 @@ object AppUpdater {
         if (old.checking || old.downloading || old.installing) return
         // Every foreground entry checks again; returning from the installer keeps the verified APK.
         if (automatic && (!automaticChecks || old.file != null)) return
+        val includePrereleases = this.includePrereleases
         mutableState.update { it.copy(checking = true, message = null) }
         scope.launch {
             try {
-                val release = fetchLatest()
+                val release = fetchLatest(includePrereleases)
+                if (includePrereleases != this@AppUpdater.includePrereleases) return@launch
                 val newer = UpdatePolicy.compare(release.version, BuildConfig.VERSION_NAME)
                     ?: throw UpdateError(R.string.app_update_version_unknown)
                 if (newer <= 0) UpdateNotifications.dismiss(lspApp)
@@ -115,6 +131,7 @@ object AppUpdater {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                if (includePrereleases != this@AppUpdater.includePrereleases) return@launch
                 mutableState.update { it.copy(checking = false, upToDate = false,
                     message = errorMessage(e, R.string.app_update_check_failed)) }
             }
