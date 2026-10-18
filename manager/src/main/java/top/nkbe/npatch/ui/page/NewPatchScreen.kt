@@ -6,9 +6,12 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -18,6 +21,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.nkbe.npatch.ui.component.GlassDialog
 import top.nkbe.npatch.ui.component.GlassDialogActions
 import top.yukonga.miuix.kmp.basic.SnackbarHost
@@ -136,7 +142,8 @@ fun NewPatchScreen(
         }
     }
 
-    BackHandler(enabled = viewModel.patchState != PatchState.INIT) {
+    val navigateBack: () -> Unit = back@{
+        if (viewModel.isExporting) return@back
         when (viewModel.patchState) {
             PatchState.PATCHING -> showAbortDialog = true
             // 中止処理中は後始末が終わるまで待つ
@@ -148,6 +155,7 @@ fun NewPatchScreen(
             }
         }
     }
+    BackHandler(enabled = viewModel.patchState != PatchState.INIT, onBack = navigateBack)
 
     LaunchedEffect(viewModel.patchState) {
         if (viewModel.patchState != PatchState.PATCHING) showAbortDialog = false
@@ -173,9 +181,15 @@ fun NewPatchScreen(
                 PatchState.PATCHING,
                 PatchState.CANCELLING,
                 PatchState.FINISHED,
-                PatchState.ERROR -> NPatchTopAppBar(
-                    title = viewModel.patchApp.app.packageName,
+                PatchState.ERROR -> SmallTopAppBar(
+                    title = viewModel.patchApp.label,
+                    color = Color.Transparent,
                     scrollBehavior = scrollBehavior,
+                    navigationIcon = {
+                        IconButton(onClick = navigateBack, enabled = !viewModel.isExporting) {
+                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.patch_return))
+                        }
+                    },
                 )
                 else -> NPatchTopAppBar(title = "", scrollBehavior = scrollBehavior)
             }
@@ -197,7 +211,7 @@ fun NewPatchScreen(
                 PatchState.CANCELLING,
                 PatchState.FINISHED,
                 PatchState.ERROR -> {
-                    DoPatchBody(modifier = Modifier, navigator = navigator)
+                    DoPatchBody(modifier = Modifier, navigator = navigator, onCancel = { showAbortDialog = true })
                 }
                 else -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

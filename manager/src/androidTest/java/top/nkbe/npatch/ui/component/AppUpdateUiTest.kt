@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.activity.ComponentActivity
+import android.content.Context
 import top.nkbe.npatch.R
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -21,12 +22,50 @@ import top.nkbe.npatch.ui.theme.LSPTheme
 import top.nkbe.npatch.update.UpdateAsset
 import top.nkbe.npatch.update.UpdateRelease
 import top.nkbe.npatch.update.UpdateState
+import top.nkbe.npatch.update.AppUpdater
 
 @RunWith(AndroidJUnit4::class)
 class AppUpdateUiTest {
     @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val release = UpdateRelease("1.2.0", "Regression release notes",
         UpdateAsset("NPatch-v1.2.0-20-debug.apk", "https://github.com/Nich87/NPatch/releases/download/v1.2.0/NPatch-v1.2.0-20-debug.apk", 1234, null))
+
+    @Test fun prereleaseSettingPersistsAndClearsPreviousChannelNotice() {
+        val preferences = compose.activity.getSharedPreferences("app_updates", Context.MODE_PRIVATE)
+        val originalInclude = AppUpdater.includePrereleases
+        val originalRelease = preferences.getString("release_json", null)
+        val originalNotified = preferences.getString("notified_version", null)
+        try {
+            compose.runOnIdle { AppUpdater.includePrereleases = false }
+            compose.setContent { LSPTheme(isDarkTheme = true) { Column { AppUpdatePreferences() } } }
+            val title = compose.activity.getString(R.string.app_update_include_prereleases)
+            compose.onNodeWithText(title).assertIsDisplayed().performClick()
+            compose.runOnIdle {
+                assertTrue(AppUpdater.includePrereleases)
+                assertTrue(preferences.getBoolean("include_prereleases", false))
+                val json = """{"tag_name":"v1.2.0-rc1","prerelease":true,"draft":false,"assets":[{"name":"NPatch-v1.2.0-rc1-20-release.apk","browser_download_url":"https://github.com/Nich87/NPatch/releases/download/v1.2.0-rc1/app.apk","size":1234}]}"""
+                preferences.edit().putString("release_json", json).putString("notified_version", "1.2.0-rc1").apply()
+                AppUpdater.openDetails()
+                assertEquals("1.2.0-rc1", AppUpdater.state.value.release?.version)
+            }
+            compose.onNodeWithText(title).performClick()
+            compose.runOnIdle {
+                assertFalse(AppUpdater.includePrereleases)
+                assertFalse(preferences.getBoolean("include_prereleases", true))
+                assertEquals(null, AppUpdater.state.value.release)
+                assertEquals(null, AppUpdater.state.value.file)
+                assertFalse(preferences.contains("release_json"))
+                assertFalse(preferences.contains("notified_version"))
+            }
+        } finally {
+            compose.runOnIdle {
+                AppUpdater.includePrereleases = originalInclude
+                preferences.edit().putString("release_json", originalRelease)
+                    .putString("notified_version", originalNotified).apply()
+                AppUpdater.showDialog(false)
+            }
+        }
+    }
 
     @Test fun changelogRendersMarkdownFormattingAndClickableLinks() {
         val notes = "# Changes\n\n- **Improved** updates\n- [Details](https://github.com/Nich87/NPatch/releases)\n\n`code`"

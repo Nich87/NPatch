@@ -11,6 +11,7 @@ import top.nkbe.npatch.Patcher
 import top.nkbe.npatch.config.Configs
 import top.nkbe.npatch.lspApp
 import top.nkbe.npatch.patch.util.Logger
+import top.nkbe.npatch.util.ProcessRuntimeSnapshot
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -23,6 +24,28 @@ import kotlin.coroutines.resumeWithException
 object PatcherClient {
 
     private const val TAG = "PatcherClient"
+    private data class RuntimeState(
+        val service: IPatcherService?,
+        val initial: ProcessRuntimeSnapshot?,
+        val completed: ProcessRuntimeSnapshot? = null,
+    )
+    @Volatile private var runtimeState: RuntimeState? = null
+
+    internal fun runtimeSnapshot(): ProcessRuntimeSnapshot? {
+        val state = runtimeState ?: return null
+        return state.completed ?: state.service?.let(::readRuntimeSnapshot)
+    }
+
+    internal fun runtimeBaseline(): ProcessRuntimeSnapshot? = runtimeState?.initial
+
+    private fun readRuntimeSnapshot(service: IPatcherService): ProcessRuntimeSnapshot? {
+        return try {
+            service.runtimeSnapshot
+        } catch (error: android.os.RemoteException) {
+            Log.w(TAG, "Unable to sample patcher runtime", error)
+            null
+        }
+    }
 
     /** Runs the patch in the patcher process and returns the produced APKs, in input order. */
     suspend fun runInPatcherProcess(logger: Logger, options: Patcher.Options): List<File> =
@@ -39,6 +62,9 @@ object PatcherClient {
             var service: IPatcherService? = null
 
             fun unbindLocked() {
+                runtimeState?.takeIf { service != null && it.service === service }?.let { state ->
+                    runtimeState = state.copy(service = null, completed = service?.let(::readRuntimeSnapshot))
+                }
                 connection?.let { if (bound) runCatching { context.unbindService(it) } }
                 connection = null
                 bound = false
@@ -93,6 +119,7 @@ object PatcherClient {
                             connected == null -> IOException("Patcher service is unavailable")
                             else -> {
                                 service = connected
+                                runtimeState = RuntimeState(connected, readRuntimeSnapshot(connected))
                                 runCatching {
                                     connected.patch(
                                         options.configArgs(),

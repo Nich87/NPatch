@@ -1,59 +1,22 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="add">Lisama</string>
     <string name="install">Installige</string>
     <string name="installing">Paigaldamine</string>
     <string name="uninstall">Desinstallige</string>
     <string name="uninstalling">Desinstallimine</string>
     <string name="copy_error">Kopeerimise viga</string>
-    <string name="apps">Rakendused</string>
-    <string name="modules">Moodulid</string>
     <string name="shizuku_available">Shizuku teenus saadaval</string>
     <string name="shizuku_unavailable">Shizuku teenus pole ühendatud</string>
-    <string name="screen_repo">Repo</string>
-    <string name="off">Väljas</string>
     <string name="error_unknown">Teadmata viga</string>
     <!-- Home Screen -->
     <string name="home_shizuku_warning">Mõned funktsioonid pole saadaval</string>
     <string name="home_api_version">API versioon</string>
-    <string name="home_npatch_version">NPatchi versioon</string>
-    <string name="home_framework_version">Raamversioon</string>
-    <string name="home_system_version">Süsteemi versioon</string>
-    <string name="home_device">Seade</string>
-    <string name="home_system_abi">Süsteemi ABI</string>
     <string name="home_info_copied">Kopeeriti lõikelauale</string>
-    <string name="home_support">Toetus</string>
-    <string name="home_description">NPatch on tasuta mittejuur-Xposedi raamistik, mis põhineb LSPosedi tuumal.</string>
-    <string name="about_view_source_code"><![CDATA[Vaadake lähtekoodi aadressil %1$s]]></string>
     <!-- Manage Screen -->
-    <string name="screen_manage">Halda</string>
     <string name="manage_loading">Laadimine</string>
-    <string name="manage_no_apps">Paigutatud rakendusi pole veel</string>
-    <string name="manage_rolling">Veeremine</string>
-    <string name="manage_update_loader">Värskenda laadurit</string>
-    <string name="manage_update_loader_successfully">Värskendamine õnnestus</string>
-    <string name="manage_update_loader_failed">Uuendus ebaõnnestus</string>
-    <string name="manage_module_scope">Mooduli ulatus</string>
-    <string name="manage_optimize">Optimeerige</string>
-    <string name="manage_optimize_successfully">Optimeerimine õnnestus</string>
-    <string name="manage_optimize_failed">Optimeerimine ebaõnnestus</string>
-    <string name="manage_uninstall_successfully">Desinstallimine õnnestus</string>
-    <string name="manage_no_modules">Mooduleid veel pole</string>
-    <string name="manage_module_settings">Mooduli seaded</string>
-    <string name="manage_app_info">Rakenduse teave</string>
     <!-- New Patch Screen -->
     <string name="screen_new_patch">Uus plaaster</string>
-    <string name="patch_select_dir_title">Valige salvestuskataloog</string>
-    <string name="patch_select_dir_text">Valige kataloog, kuhu paigatud APK-d salvestada</string>
     <string name="patch_select_dir_error">Viga salvestuskataloogi seadistamisel</string>
-    <string name="patch_from_storage">Valige mälust apk(id).</string>
-    <string name="patch_from_applist">Valige installitud rakendus</string>
-    <string name="patch_mode">Paigutuse režiim</string>
-    <string name="patch_local">Kohalik</string>
-    <string name="patch_local_desc">Paigaldage rakendus ilma mooduliteta sisseehitatud.\nXposed ulatust saab dünaamiliselt muuta ilma uuesti paranduseta.\nKohalikud parandatud rakendused saavad töötada ainult kohalikus seadmes.</string>
-    <string name="patch_integrated">Integreeritud</string>
-    <string name="patch_integrated_desc">Paigutage manustatud moodulitega rakendust.\nPaigutatud rakendus võib töötada ilma haldurita, kuid seda ei saa dünaamiliselt hallata.\nIntegreeritud paigatud rakendusi saab kasutada seadmetes, kuhu pole installitud NPatch Manager.</string>
-    <string name="patch_embed_modules">Manustage moodulid</string>
     <string name="patch_debuggable">Silutav</string>
     <string name="patch_sigbypass">Allkirjast möödasõit</string>
     <string name="patch_sigbypasslv0">lv0: väljas</string>
@@ -67,9 +30,6 @@
     <string name="patch_uninstall_text">Erinevate allkirjade tõttu peate enne paigatud rakenduse installimist algse rakenduse desinstallima.\nVeenduge, et olete isikuandmed varundanud.</string>
     <string name="patch_install_successfully">Installimine õnnestus</string>
     <string name="patch_install_failed">Install ebaõnnestus</string>
-    <string name="patch_no_xposed_module">Xposed moodul(id) ei leitud</string>
-    <!-- Select Apps Screen -->
-    <string name="screen_select_apps">Valige Rakendused</string>
     <!-- Settings Screen -->
     <string name="screen_settings">Seaded</string>
     <string name="settings_keystore">Allkirja võtmehoidla</string>
@@ -85,6 +45,4 @@
     <string name="settings_keystore_wrong_alias">Vale pseudonüümi nimi</string>
     <string name="settings_keystore_wrong_alias_password">Vale aliase parool</string>
     <string name="settings_detail_patch_logs">Üksikasjade paikade logid</string>
-    <string name="settings_card_background_alpha">Kaardi tausta läbipaistmatus</string>
-    <string name="settings_card_background_alpha_summary">Kehtib, kui kohandatud taustapilt on lubatud</string>
 </resources>

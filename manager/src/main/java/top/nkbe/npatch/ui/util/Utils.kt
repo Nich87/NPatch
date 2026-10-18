@@ -3,16 +3,6 @@ package top.nkbe.npatch.ui.util
 import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
-import androidx.compose.foundation.lazy.LazyListState
-
-val LazyListState.lastVisibleItemIndex
-    get() = layoutInfo.visibleItemsInfo.lastOrNull()?.index
-
-val LazyListState.lastItemIndex
-    get() = layoutInfo.totalItemsCount.let { if (it == 0) null else it }
-
-val LazyListState.isScrolledToEnd
-    get() = lastVisibleItemIndex == lastItemIndex
 
 fun checkIsApkFixedByLSP(context: Context, packageName: String): Boolean {
     return try {

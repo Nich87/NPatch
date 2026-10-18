@@ -676,8 +676,6 @@ private fun KnotReleaseItem(
                             scope.launch {
                                 try {
                                     // suspend するので完了まで isDownloading が true のまま維持される
-                                    // -> コルーチン内の withContext(Main) から startActivity を呼ぶため
-                                    //    Android 10+ の背景起動制限にもかからない
                                     val installed = downloader.downloadAndOpen(downloadUrl, fileName)
                                     if (installed) {
                                         // ダウンロード・インストール完了後にパッチ続行へ進む

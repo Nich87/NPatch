@@ -55,8 +55,6 @@ namespace lspd {
     using RealpathFn = char*(*)(const char*, char*);
     using StatFn = int(*)(const char*, struct stat*);
     using Stat64Fn = int(*)(const char*, struct stat64*);
-    using FstatAtFn = int(*)(int, const char*, struct stat*, int);
-    using FstatAt64Fn = int(*)(int, const char*, struct stat64*, int);
     using StatFsFn = int(*)(const char*, struct statfs*);
     using StatxFn = int(*)(int, const char*, int, unsigned int, struct statx*);
     using CloseFn = int(*)(int);
@@ -103,8 +101,6 @@ namespace lspd {
     static StatFn lstat_backup = nullptr;
     static Stat64Fn stat64_backup = nullptr;
     static Stat64Fn lstat64_backup = nullptr;
-    static FstatAtFn fstatat_backup = nullptr;
-    static FstatAt64Fn fstatat64_backup = nullptr;
     static StatFsFn statfs_backup = nullptr;
     static StatxFn statx_backup = nullptr;
     static FopenFn fopen_backup = nullptr;
@@ -1387,52 +1383,6 @@ namespace lspd {
         int rc = lstat64_backup(redirected_path, st);
         if (rc == 0) {
             rewrite_stat_like_result(pathname, st);
-        }
-        return rc;
-    }
-
-    static int hooked_fstatat(int dirfd, const char* pathname, struct stat* st, int flags) {
-        if (fstatat_backup == nullptr) {
-            errno = ENOSYS;
-            return -1;
-        }
-        if (pathname != nullptr && is_dev_fuse_path(pathname)) {
-            errno = ENOENT;
-            return -1;
-        }
-        ProcFdReadlinkatPath effective_path;
-        prepare_proc_fd_readlinkat_path(&effective_path, dirfd, pathname,
-                                        [](const char* link_path, char* resolved_path, size_t size) -> ssize_t {
-                                            return syscall(__NR_readlinkat, AT_FDCWD, link_path, resolved_path, size);
-                                        });
-        std::string redirected_path_storage;
-        const char* redirected_path = get_visible_or_redirected_path(effective_path.path(), false, &redirected_path_storage);
-        int rc = fstatat_backup(effective_path.dirfd, redirected_path, st, flags);
-        if (rc == 0) {
-            rewrite_stat_like_result(effective_path.path(), st);
-        }
-        return rc;
-    }
-
-    static int hooked_fstatat64(int dirfd, const char* pathname, struct stat64* st, int flags) {
-        if (fstatat64_backup == nullptr) {
-            errno = ENOSYS;
-            return -1;
-        }
-        if (pathname != nullptr && is_dev_fuse_path(pathname)) {
-            errno = ENOENT;
-            return -1;
-        }
-        ProcFdReadlinkatPath effective_path;
-        prepare_proc_fd_readlinkat_path(&effective_path, dirfd, pathname,
-                                        [](const char* link_path, char* resolved_path, size_t size) -> ssize_t {
-                                            return syscall(__NR_readlinkat, AT_FDCWD, link_path, resolved_path, size);
-                                        });
-        std::string redirected_path_storage;
-        const char* redirected_path = get_visible_or_redirected_path(effective_path.path(), false, &redirected_path_storage);
-        int rc = fstatat64_backup(effective_path.dirfd, redirected_path, st, flags);
-        if (rc == 0) {
-            rewrite_stat_like_result(effective_path.path(), st);
         }
         return rc;
     }

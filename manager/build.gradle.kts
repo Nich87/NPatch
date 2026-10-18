@@ -4,11 +4,8 @@ import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.HostTestBuilder
 
 val defaultManagerPackageName: String by rootProject.extra
-val apiCode: Int by rootProject.extra
 val verCode: Int by rootProject.extra
 val verName: String by rootProject.extra
-val coreVerCode: Int by rootProject.extra
-val coreVerName: String by rootProject.extra
 
 fun decodeSha256Hex(value: String): ByteArray {
     require(value.length == 64) { "Manager signature digest must be 64 hex chars: $value" }
@@ -26,6 +23,7 @@ fun encodeAllowlistEntry(value: String): String {
 plugins {
     alias(libs.plugins.agp.app)
     alias(npatch.plugins.kotlin.android)
+    alias(npatch.plugins.kotlin.serialization)
     alias(npatch.plugins.compose.compiler)
     alias(npatch.plugins.google.devtools.ksp)
     alias(npatch.plugins.rikka.tools.refine)
@@ -49,6 +47,7 @@ android {
     defaultConfig {
         applicationId = defaultManagerPackageName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        externalNativeBuild.cmake.abiFilters("armeabi-v7a", "x86")
         val managerSignatureAllowlist = (
             System.getenv("NPATCH_MANAGER_SIGNATURE_SHA256")
                 ?: project.findProperty("npatchManagerSignatureSha256")?.toString()
@@ -102,6 +101,13 @@ android {
         aidl = true
         compose = true
         buildConfig = true
+    }
+
+    externalNativeBuild {
+        cmake {
+            path("src/main/jni/CMakeLists.txt")
+            version = "3.31.6"
+        }
     }
 
     namespace = "top.nkbe.npatch"

@@ -49,7 +49,6 @@ import kotlin.coroutines.suspendCoroutine
 object NeoPackageManager {
 
     private const val TAG = "NeoPackageManager"
-    private const val SETTINGS_CATEGORY = "de.robv.android.xposed.category.MODULE_SETTINGS"
 
     const val STATUS_USER_CANCELLED = -2
 
@@ -166,12 +165,6 @@ object NeoPackageManager {
     suspend fun cleanTmpApkDir() {
         withContext(Dispatchers.IO) {
             lspApp.tmpApkDir.listFiles()?.forEach(File::delete)
-        }
-    }
-
-    suspend fun cleanExternalTmpApkDir() {
-        withContext(Dispatchers.IO) {
-            lspApp.externalCacheDir?.listFiles()?.forEach(File::delete)
         }
     }
 
@@ -355,15 +348,6 @@ object NeoPackageManager {
         return Pair(status, message)
     }
 
-    suspend fun forceStop(packageName: String): Boolean {
-        return withContext(Dispatchers.IO) {
-            runCatching {
-                ShizukuApi.forceStopPackage(packageName)
-                true
-            }.getOrDefault(false)
-        }
-    }
-
     /**
      * Reads app information from a set of APK/APKS/XAPK files, extracting
      * split APKs from archives when necessary.
@@ -509,22 +493,6 @@ object NeoPackageManager {
         }
 
         if (ris.size <= 0) return null
-
-        return Intent(intentToResolve)
-            .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            .setClassName(
-                ris[0].activityInfo.packageName,
-                ris[0].activityInfo.name
-            )
-    }
-
-    fun getSettingsIntent(packageName: String): Intent? {
-        val intentToResolve = Intent(Intent.ACTION_MAIN)
-        intentToResolve.addCategory(SETTINGS_CATEGORY)
-        intentToResolve.setPackage(packageName)
-        val ris = lspApp.packageManager.queryIntentActivities(intentToResolve, 0)
-
-        if (ris.size <= 0) return getLaunchIntentForPackage(packageName)
 
         return Intent(intentToResolve)
             .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

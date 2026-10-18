@@ -44,9 +44,18 @@ object UpdatePolicy {
         return 0
     }
 
-    fun parseRelease(json: String, debug: Boolean): UpdateRelease {
+    fun parseLatestRelease(json: String, debug: Boolean, includePrereleases: Boolean = false): UpdateRelease? {
+        val root = JsonParser.parseString(json)
+        val releases = if (root.isJsonArray) root.asJsonArray.toList() else listOf(root)
+        return releases.mapNotNull { release ->
+            runCatching { parseRelease(release.toString(), debug, includePrereleases) }.getOrNull()
+        }.maxWithOrNull { left, right -> requireNotNull(compare(left.version, right.version)) }
+    }
+
+    fun parseRelease(json: String, debug: Boolean, includePrereleases: Boolean = false): UpdateRelease {
         val root = JsonParser.parseString(json).asJsonObject
-        require(root.get("draft")?.asBoolean != true && root.get("prerelease")?.asBoolean != true)
+        require(root.get("draft")?.asBoolean != true)
+        require(includePrereleases || root.get("prerelease")?.asBoolean != true)
         val version = root.get("tag_name").asString.removePrefix("v").removePrefix("V")
         require(parts(version) != null) { "Unsupported release version" }
         val assets = root.getAsJsonArray("assets").mapNotNull { element ->

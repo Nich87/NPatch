@@ -20,7 +20,6 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -441,22 +440,6 @@ public class LSPLoader {
             sb.append(LoadedModule.apkPath).append("!/lib/").append(abi).append(File.pathSeparator);
         }
         return sb.toString();
-    }
-
-    private static List<String> buildNativeInitCandidates(LoadedModule LoadedModule, File nativeDir, String libName) {
-        LinkedHashSet<String> candidates = new LinkedHashSet<>();
-        if (nativeDir != null) {
-            candidates.add(new File(nativeDir, libName).getAbsolutePath());
-        }
-        String[] abis = Process.is64Bit() ? Build.SUPPORTED_64_BIT_ABIS : Build.SUPPORTED_32_BIT_ABIS;
-        for (String abi : abis) {
-            candidates.add(LoadedModule.apkPath + "!/lib/" + abi + "/" + libName);
-            String normalizedAbi = abi.toLowerCase(Locale.ROOT);
-            if (!normalizedAbi.equals(abi)) {
-                candidates.add(LoadedModule.apkPath + "!/lib/" + normalizedAbi + "/" + libName);
-            }
-        }
-        return new ArrayList<>(candidates);
     }
 
     private static List<String> discoverNativeLibraries(LoadedModule LoadedModule) {

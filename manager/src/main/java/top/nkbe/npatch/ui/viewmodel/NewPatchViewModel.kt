@@ -2,6 +2,7 @@ package top.nkbe.npatch.ui.viewmodel
 
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
@@ -34,6 +35,8 @@ import top.nkbe.npatch.service.PatchForegroundService
 import top.nkbe.npatch.share.Constants
 import top.nkbe.npatch.share.PatchConfig
 import top.nkbe.npatch.util.LINE_PACKAGE_NAME
+import top.nkbe.npatch.util.PatchRuntimeMetrics
+import top.nkbe.npatch.util.PatchRuntimeSample
 import top.nkbe.npatch.util.formatLineVersionName
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
@@ -85,6 +88,7 @@ class NewPatchViewModel : ViewModel() {
             "Embedding modules" to R.string.patch_stage_modules,
             "Adding metaloader dex" to R.string.patch_stage_metaloader,
             "Writing apk" to R.string.patch_stage_writing,
+            "Signing output APK" to R.string.patch_stage_signing,
             "Exporting" to R.string.patch_stage_exporting,
         )
 
@@ -118,6 +122,19 @@ class NewPatchViewModel : ViewModel() {
     var currentStage by mutableStateOf("")
         private set
 
+    var patchError by mutableStateOf<String?>(null)
+        private set
+    var exportError by mutableStateOf<String?>(null)
+        private set
+    var isExporting by mutableStateOf(false)
+        private set
+    var runtimeSamples by mutableStateOf<List<PatchRuntimeSample>>(emptyList())
+        private set
+    var elapsedMillis by mutableStateOf(0L)
+        private set
+    var outputSizeBytes by mutableStateOf<Long?>(null)
+        private set
+
     // パッチ設定
     @set:JvmName("_setUseManager")
     var useManager by mutableStateOf(true)
@@ -136,6 +153,9 @@ class NewPatchViewModel : ViewModel() {
     var hasExecutedIntent by mutableStateOf(false)
 
     private var patchJob: Job? = null
+    private var metricsJob: Job? = null
+    private var runtimeMetrics: PatchRuntimeMetrics? = null
+    private var patchStartedAtMillis: Long? = null
     private var preservedApkFiles: List<File>? = null
 
     lateinit var patchApp: AppInfo
@@ -248,6 +268,10 @@ class NewPatchViewModel : ViewModel() {
     }
 
     fun reset() {
+        stopRuntimeMetrics()
+        runtimeSamples = emptyList()
+        elapsedMillis = 0L
+        outputSizeBytes = null
         patchState = PatchState.INIT
         proxyRequest = null
         useManager = true
@@ -264,14 +288,9 @@ class NewPatchViewModel : ViewModel() {
         embeddedModules = emptyList()
         clearLogs()
         currentStage = ""
+        patchError = null
+        exportError = null
         hasExecutedIntent = false
-    }
-
-    fun setUseManager(value: Boolean) {
-        useManager = value
-        if (!value && sigBypassLevel > Constants.SIGBYPASS_HIGH) {
-            sigBypassLevel = Constants.SIGBYPASS_HIGH
-        }
     }
 
     private fun doneInit() {
@@ -353,10 +372,13 @@ class NewPatchViewModel : ViewModel() {
     /** アプリスコープで実行して画面を離れても継続させ、フォアグラウンドサービスでプロセスを保持する。 */
     private fun launchPatch() {
         if (patchJob?.isActive == true) return
+        patchError = null
+        exportError = null
         preservedApkFiles = lspApp.targetApkFiles?.toList()
         currentStage = lspApp.getString(R.string.patch_stage_preparing)
         PatchForegroundService.start(lspApp, currentStage)
         patchJob = lspApp.globalScope.launch(Dispatchers.Main.immediate) {
+            startRuntimeMetrics()
             logger.i("Launch Patch")
             val result = try {
                 val options = proxyRequest
@@ -364,7 +386,11 @@ class NewPatchViewModel : ViewModel() {
                     ?: patchOptions
 
                 logger.i("[Patch] Starting LSPatch engine...")
-                Patcher.patch(logger, options)
+                exportError = Patcher.patch(logger, options).exportError
+                outputSizeBytes = withContext(Dispatchers.IO) {
+                    lspApp.targetApkFiles?.sumOf { it.length() }
+                }
+                exportError?.let { logger.e("Export failed: $it") }
                 logger.i("[Patch] Patching completed successfully!")
 
                 // 自動で Knot モジュールをスコープ登録
@@ -374,18 +400,90 @@ class NewPatchViewModel : ViewModel() {
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (t: Throwable) {
+                patchError = t.message?.takeIf(String::isNotBlank) ?: t.javaClass.simpleName
                 logger.e(t.message.orEmpty())
                 logger.e(t.stackTraceToString())
                 PatchState.ERROR
             } finally {
-                withContext(NonCancellable) { NeoPackageManager.cleanTmpApkDir() }
+                try {
+                    withContext(NonCancellable) { NeoPackageManager.cleanTmpApkDir() }
+                } finally {
+                    withContext(NonCancellable) { finishRuntimeMetrics() }
+                }
             }
             // 中止された場合の状態遷移と後始末は cancelPatch 側が受け持つ
             if (isActive) {
                 patchState = result
-                PatchForegroundService.stop(lspApp)
+                publishLogs()
+                PatchForegroundService.complete(
+                    context = lspApp,
+                    succeeded = result == PatchState.FINISHED,
+                    appLabel = patchApp.label,
+                    exportFailed = exportError != null,
+                )
             }
         }
+    }
+
+    fun retryExport() {
+        if (patchState != PatchState.FINISHED || isExporting) return
+        isExporting = true
+        viewModelScope.launch {
+            try {
+                Patcher.exportPatchedApks(logger, newPackageName)
+                exportError = null
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                exportError = error.message?.takeIf(String::isNotBlank) ?: error.javaClass.simpleName
+                logger.e("Export failed: $exportError")
+            } finally {
+                isExporting = false
+                publishLogs()
+            }
+        }
+    }
+
+    private fun startRuntimeMetrics() {
+        stopRuntimeMetrics()
+        runtimeSamples = emptyList()
+        elapsedMillis = 0L
+        outputSizeBytes = null
+        patchStartedAtMillis = SystemClock.elapsedRealtime()
+        val metrics = PatchRuntimeMetrics().also { runtimeMetrics = it }
+        metricsJob = lspApp.globalScope.launch(Dispatchers.Main.immediate) {
+            while (isActive) {
+                recordRuntimeSample(metrics)
+                patchStartedAtMillis?.let { elapsedMillis = SystemClock.elapsedRealtime() - it }
+                delay(1_000)
+            }
+        }
+    }
+
+    private suspend fun recordRuntimeSample(metrics: PatchRuntimeMetrics) {
+        val sample = try {
+            withContext(Dispatchers.IO) { metrics.sample() }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            Log.w(TAG, "Unable to sample patch runtime", error)
+            PatchRuntimeSample(null, null, null)
+        }
+        runtimeSamples = (runtimeSamples + sample).takeLast(24)
+    }
+
+    private suspend fun finishRuntimeMetrics() {
+        metricsJob?.cancelAndJoin()
+        runtimeMetrics?.let { recordRuntimeSample(it) }
+        stopRuntimeMetrics()
+    }
+
+    private fun stopRuntimeMetrics() {
+        metricsJob?.cancel()
+        metricsJob = null
+        runtimeMetrics = null
+        patchStartedAtMillis?.let { elapsedMillis = SystemClock.elapsedRealtime() - it }
+        patchStartedAtMillis = null
     }
 
     private fun cancelPatch() {
@@ -413,6 +511,7 @@ class NewPatchViewModel : ViewModel() {
 
     override fun onCleared() {
         super.onCleared()
+        stopRuntimeMetrics()
         val job = patchJob ?: return
         if (!job.isActive) return
         lspApp.globalScope.launch { abortPatch(job) }
@@ -435,7 +534,7 @@ class NewPatchViewModel : ViewModel() {
             pm.getApplicationInfo(KNOT_PACKAGE_NAME, PackageManager.GET_META_DATA)
         }.getOrNull()
         if (knotInfo == null) {
-            logger.i("Knot がインストールされていないため、自動スコープ登録をスキップ")
+            logger.i("Knot 未導入: 自動スコープ登録をスキップ")
             return
         }
         val meta = runCatching {
