@@ -10,36 +10,22 @@ import top.nkbe.npatch.network.NetworkDns
 import java.io.IOException
 
 /**
- * GitHub Releases API から Knot のリリース情報を取得する。
- * - 最新リリースの取得（ホーム画面の更新カード用）
- * - 全リリースの一覧取得（リリース一覧画面用）
+ * GitHub Releases API から Knot のリリース一覧を取得する。
  */
 object KnotReleaseLoader {
 
     private const val TAG = "KnotReleaseLoader"
     private const val OWNER = "2b-zipper"
     private const val REPO = "Knot"
-    private const val LATEST_URL =
-        "https://api.github.com/repos/$OWNER/$REPO/releases/latest"
     private const val ALL_RELEASES_URL =
         "https://api.github.com/repos/$OWNER/$REPO/releases"
 
     /** キャッシュの有効期限 (30 分)。ホーム表示のたびに API を叩かないようにする */
     private const val CACHE_TTL_MS = 30 * 60 * 1000L
 
-    /** キャッシュされた最新リリース */
-    @Volatile
-    var latestRelease: KnotRelease? = null
-        private set
-
     /** キャッシュされた全リリース */
     @Volatile
     var cachedReleases: List<KnotRelease> = emptyList()
-        private set
-
-    /** エラー情報 */
-    @Volatile
-    var loadError: String? = null
         private set
 
     @Volatile
@@ -51,33 +37,6 @@ object KnotReleaseLoader {
     private fun commonHeaders(requestBuilder: Request.Builder) = requestBuilder
         .header("Accept", "application/vnd.github+json")
         .header("User-Agent", "NPatch-Manager")
-
-    /**
-     * GitHub API から最新リリースを取得し、[latestRelease] にキャッシュする。
-     */
-    suspend fun fetchLatestRelease(): Result<KnotRelease> = withContext(Dispatchers.IO) {
-        try {
-            val client = buildClient()
-            val request = commonHeaders(Request.Builder().url(LATEST_URL)).build()
-
-            val response = client.newCall(request).execute()
-            if (!response.isSuccessful) {
-                val msg = "HTTP ${response.code}"
-                loadError = msg
-                return@withContext Result.failure(IOException(msg))
-            }
-
-            val body = response.body.string()
-            val release = Gson().fromJson(body, KnotRelease::class.java)
-            latestRelease = release
-            loadError = null
-            Result.success(release)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to fetch latest Knot release", e)
-            loadError = e.message
-            Result.failure(e)
-        }
-    }
 
     /**
      * GitHub API から全リリースを取得し、[cachedReleases] にキャッシュする。
@@ -104,7 +63,6 @@ object KnotReleaseLoader {
                 if (!response.isSuccessful) {
                     if (allReleases.isNotEmpty()) break
                     val msg = "HTTP ${response.code}"
-                    loadError = msg
                     return@withContext Result.failure(IOException(msg))
                 }
 
@@ -114,20 +72,13 @@ object KnotReleaseLoader {
 
                 if (pageReleases.isEmpty()) break
                 allReleases.addAll(pageReleases)
-
-                // 最新リリースが含まれていたらキャッシュも更新
-                if (page == 1 && pageReleases.isNotEmpty()) {
-                    latestRelease = pageReleases.first()
-                }
             }
 
             cachedReleases = allReleases
             lastFetchTime = System.currentTimeMillis()
-            loadError = null
             Result.success(allReleases)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to fetch all Knot releases", e)
-            loadError = e.message
             Result.failure(e)
         }
         }

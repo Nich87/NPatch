@@ -10,7 +10,6 @@ import android.util.Log
 import top.nkbe.npatch.BuildConfig
 import java.security.MessageDigest
 import java.util.Base64
-import java.util.Locale
 
 object ManagerIntegrity {
     private const val TAG = "NPatch-Integrity"
