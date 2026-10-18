@@ -4,11 +4,8 @@ import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.HostTestBuilder
 
 val defaultManagerPackageName: String by rootProject.extra
-val apiCode: Int by rootProject.extra
 val verCode: Int by rootProject.extra
 val verName: String by rootProject.extra
-val coreVerCode: Int by rootProject.extra
-val coreVerName: String by rootProject.extra
 
 fun decodeSha256Hex(value: String): ByteArray {
     require(value.length == 64) { "Manager signature digest must be 64 hex chars: $value" }

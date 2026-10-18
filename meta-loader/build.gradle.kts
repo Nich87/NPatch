@@ -1,5 +1,3 @@
-import java.util.Locale
-
 plugins {
     alias(libs.plugins.agp.app)
 }

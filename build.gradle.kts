@@ -105,8 +105,6 @@ tasks.register<Delete>("clean") {
 }
 
 listOf("Debug", "Release").forEach { variant ->
-    val variantLower = variant.lowercase()
-
     tasks.register("build$variant") {
         description = "Build NPatch with $variant"
         dependsOn(tasks.findByPath(":manager:build$variant") ?: "manager:build$variant")
