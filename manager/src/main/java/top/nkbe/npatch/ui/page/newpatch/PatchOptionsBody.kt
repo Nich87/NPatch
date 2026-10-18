@@ -14,6 +14,10 @@ import androidx.compose.material.icons.outlined.Output
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -174,7 +178,7 @@ fun PatchOptionsBody(modifier: Modifier) {
                     onCheckedChange = { viewModel.useMicroG = it }
                 )
                 if (viewModel.useMicroG) {
-                    MicrogVendorPreference()
+                    MicrogVendorPreference(viewModel.microgVendor) { viewModel.microgVendor = it }
                 }
                 SwitchPreference(
                     title = stringResource(R.string.patch_debuggable),
@@ -210,11 +214,11 @@ private val MICROG_VENDOR_PRESETS = listOf(
 )
 
 @Composable
-private fun MicrogVendorPreference() {
-    val viewModel = viewModel<NewPatchViewModel>()
+internal fun MicrogVendorPreference(vendor: String, onVendorChange: (String) -> Unit) {
     val customLabel = stringResource(R.string.patch_microg_vendor_custom)
     val items = MICROG_VENDOR_PRESETS.map { (_, labelRes) -> stringResource(labelRes) } + customLabel
-    val selectedIndex = MICROG_VENDOR_PRESETS.indexOfFirst { it.first == viewModel.microgVendor }
+    var custom by rememberSaveable { mutableStateOf(MICROG_VENDOR_PRESETS.none { it.first == vendor }) }
+    val selectedIndex = if (custom) items.lastIndex else MICROG_VENDOR_PRESETS.indexOfFirst { it.first == vendor }
         .takeIf { it >= 0 } ?: items.lastIndex
 
     OverlayDropdownPreference(
@@ -224,17 +228,18 @@ private fun MicrogVendorPreference() {
         selectedIndex = selectedIndex,
         startAction = { Icon(Icons.Outlined.CloudSync, null) },
         onSelectedIndexChange = { index ->
+            custom = index == items.lastIndex
             MICROG_VENDOR_PRESETS.getOrNull(index)?.let { (vendor, _) ->
-                viewModel.microgVendor = vendor
+                onVendorChange(vendor)
             }
         }
     )
 
     // カスタム指定時はパッケージ名を直接入力する
-    if (selectedIndex == items.lastIndex) {
+    if (custom) {
         TextField(
-            value = viewModel.microgVendor,
-            onValueChange = { viewModel.microgVendor = it },
+            value = vendor,
+            onValueChange = onVendorChange,
             label = stringResource(R.string.patch_microg_vendor_hint),
             modifier = Modifier
                 .fillMaxWidth()
