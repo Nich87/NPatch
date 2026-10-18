@@ -35,23 +35,6 @@ object NetworkDns {
 
     fun customUrl(): String = preferences().getString(PREF_CUSTOM_URL, "").orEmpty()
 
-    fun setProvider(provider: DnsProvider) {
-        preferences().edit().putString(PREF_PROVIDER, provider.preferenceValue).apply()
-        cachedClient = null
-    }
-
-    fun setCustomUrl(url: String): Boolean {
-        val normalized = url.trim()
-        val parsed = normalized.toHttpUrlOrNull()
-        if (parsed == null || !parsed.isHttps || parsed.host.isBlank()) return false
-        preferences().edit()
-            .putString(PREF_CUSTOM_URL, normalized)
-            .putString(PREF_PROVIDER, DnsProvider.CUSTOM.preferenceValue)
-            .apply()
-        cachedClient = null
-        return true
-    }
-
     fun client(): OkHttpClient {
         val key = ClientKey(selectedProvider(), customUrl())
         cachedClient?.takeIf { it.first == key }?.let { return it.second }

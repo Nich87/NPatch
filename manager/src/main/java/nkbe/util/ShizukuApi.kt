@@ -1,11 +1,6 @@
 package nkbe.util
 
-import android.app.IActivityManager
-import android.content.ComponentName
 import android.content.IntentSender
-import android.content.ServiceConnection
-import android.content.pm.ApplicationInfo
-import android.content.pm.IPackageDataObserver
 import android.content.pm.IPackageInstaller
 import android.content.pm.IPackageInstallerSession
 import android.content.pm.IPackageManager
@@ -17,7 +12,6 @@ import android.os.Build
 import android.os.IBinder
 import android.os.IInterface
 import android.os.Process
-import android.os.SystemProperties
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +26,7 @@ import top.nkbe.npatch.lspApp
 /**
  * Thin wrapper around the Shizuku API that exposes the state of the
  * binder connection and permission, and provides access to privileged
- * system services (package manager, activity manager, package installer).
+ * system services (package manager and package installer).
  */
 object ShizukuApi {
 
@@ -54,9 +48,6 @@ object ShizukuApi {
 
     private val iPackageManager: IPackageManager
         get() = IPackageManager.Stub.asInterface(getSystemService("package"))
-
-    private val iActivityManager: IActivityManager
-        get() = IActivityManager.Stub.asInterface(getSystemService("activity"))
 
     private val iPackageInstaller: IPackageInstaller
         get() = IPackageInstaller.Stub.asInterface(iPackageManager.packageInstaller.asShizukuBinder())
@@ -162,44 +153,10 @@ object ShizukuApi {
         return SystemServiceHelper.getSystemService(name).wrap()
     }
 
-    fun bindUserService(
-        componentName: ComponentName,
-        connection: ServiceConnection,
-        tag: String,
-        version: Int,
-        daemon: Boolean = true,
-    ) {
-        ensureReady()
-        val args =
-            Shizuku.UserServiceArgs(componentName)
-                .tag(tag)
-                .version(version)
-                .daemon(daemon)
-        Shizuku.bindUserService(args, connection)
-    }
-
-    fun unbindUserService(
-        componentName: ComponentName,
-        connection: ServiceConnection,
-        tag: String,
-        version: Int,
-        remove: Boolean = false,
-    ) {
-        val args = Shizuku.UserServiceArgs(componentName).tag(tag).version(version)
-        Shizuku.unbindUserService(args, connection, remove)
-    }
-
     private fun ensureReady() {
         refreshState()
         check(isBinderAvailable) { "Shizuku binder is not available" }
         check(isPermissionGranted) { "Shizuku permission is not granted" }
-    }
-
-    fun getInstalledApplications(): List<ApplicationInfo> {
-        ensureReady()
-        val userId = Process.myUserHandle().hashCode()
-        val flags = PackageManager.GET_META_DATA.toLong()
-        return iPackageManager.getInstalledApplications(flags, userId).list
     }
 
     fun getInstalledPackages(flags: Int): List<PackageInfo> {
@@ -240,55 +197,4 @@ object ShizukuApi {
         packageInstaller.uninstall(packageName, intentSender)
     }
 
-    fun performDexOptMode(packageName: String): Boolean {
-        ensureReady()
-        return iPackageManager.performDexOptMode(
-            packageName,
-            SystemProperties.getBoolean("dalvik.vm.usejitprofiles", false),
-            "verify", true, true, null
-        )
-    }
-
-    fun forceStopPackage(packageName: String) {
-        ensureReady()
-        val userId = Process.myUserHandle().hashCode()
-        iActivityManager.forceStopPackage(packageName, userId)
-    }
-
-    fun clearApplicationUserData(packageName: String, observer: IPackageDataObserver) {
-        ensureReady()
-        val userId = Process.myUserHandle().hashCode()
-        val method = iPackageManager.javaClass.getMethod(
-            "clearApplicationUserData",
-            String::class.java,
-            IPackageDataObserver::class.java,
-            Int::class.java
-        )
-        method.invoke(iPackageManager, packageName, observer, userId)
-    }
-
-    fun setApplicationEnabledSetting(packageName: String, newState: Int) {
-        ensureReady()
-        val userId = Process.myUserHandle().hashCode()
-        val method = iPackageManager.javaClass.getMethod(
-            "setApplicationEnabledSetting",
-            String::class.java,
-            Int::class.java,
-            Int::class.java,
-            Int::class.java,
-            String::class.java
-        )
-        method.invoke(iPackageManager, packageName, newState, 0, userId, "com.android.shell")
-    }
-
-    fun getApplicationEnabledSetting(packageName: String): Int {
-        ensureReady()
-        val userId = Process.myUserHandle().hashCode()
-        val method = iPackageManager.javaClass.getMethod(
-            "getApplicationEnabledSetting",
-            String::class.java,
-            Int::class.java
-        )
-        return method.invoke(iPackageManager, packageName, userId) as Int
-    }
 }

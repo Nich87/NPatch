@@ -25,10 +25,6 @@ object ManagerLogger {
         if (Configs.outputFullLog) start()
     }
 
-    fun setEnabled(enabled: Boolean) {
-        if (enabled) start() else stop()
-    }
-
     @Synchronized
     private fun start() {
         if (logcatProcess != null) return

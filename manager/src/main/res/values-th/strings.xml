@@ -1,59 +1,22 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="add">Addไทย</string>
     <string name="install">ติดตั้ง</string>
     <string name="installing">กำลังติดตั้ง</string>
     <string name="uninstall">ถอนการติดตั้ง</string>
     <string name="uninstalling">กำลังถอนการติดตั้ง</string>
     <string name="copy_error">ข้อผิดพลาดในการคัดลอก</string>
-    <string name="apps">แอพ</string>
-    <string name="modules">โมดูล</string>
     <string name="shizuku_available">ชิซึกุ มีบริการ</string>
     <string name="shizuku_unavailable">ไม่ได้เชื่อมต่อบริการ Shizuku</string>
-    <string name="screen_repo">Repo</string>
-    <string name="off">ปิด</string>
     <string name="error_unknown">Unknown error</string>
     <!-- Home Screen -->
     <string name="home_shizuku_warning">ฟังก์ชั่นบางอย่างใช้งานไม่ได้</string>
     <string name="home_api_version">เวอร์ชัน API</string>
-    <string name="home_npatch_version">เวอร์ชัน NPatch</string>
-    <string name="home_framework_version">เวอร์ชันกรอบงาน</string>
-    <string name="home_system_version">เวอร์ชันของระบบ</string>
-    <string name="home_device">อุปกรณ์</string>
-    <string name="home_system_abi">ระบบ ABI</string>
     <string name="home_info_copied">คัดลอกไปยังคลิปบอร์ดแล้ว</string>
-    <string name="home_support">สนับสนุน</string>
-    <string name="home_description">NPatch เป็นเฟรมเวิร์ก Xposed ที่ไม่ใช่รูทฟรีโดยอิงตามคอร์ LSPosed</string>
-    <string name="about_view_source_code"><![CDATA[ดูซอร์สโค้ดได้ที่ %1$s]]></string>
     <!-- Manage Screen -->
-    <string name="screen_manage">จัดการ</string>
     <string name="manage_loading">กำลังโหลด</string>
-    <string name="manage_no_apps">ยังไม่มีแอพแพตช์</string>
-    <string name="manage_rolling">กลิ้ง</string>
-    <string name="manage_update_loader">อัพเดทตัวโหลด</string>
-    <string name="manage_update_loader_successfully">อัพเดทเรียบร้อย</string>
-    <string name="manage_update_loader_failed">การอัพเดทล้มเหลว</string>
-    <string name="manage_module_scope">ขอบเขตโมดูล</string>
-    <string name="manage_optimize">เพิ่มประสิทธิภาพ</string>
-    <string name="manage_optimize_successfully">เพิ่มประสิทธิภาพสำเร็จ</string>
-    <string name="manage_optimize_failed">การเพิ่มประสิทธิภาพล้มเหลว</string>
-    <string name="manage_uninstall_successfully">ถอนการติดตั้งสำเร็จ</string>
-    <string name="manage_no_modules">ยังไม่มีโมดูล</string>
-    <string name="manage_module_settings">การตั้งค่าโมดูล</string>
-    <string name="manage_app_info">ข้อมูลแอพ</string>
     <!-- New Patch Screen -->
     <string name="screen_new_patch">แพทช์ใหม่</string>
-    <string name="patch_select_dir_title">เลือกไดเร็กทอรีการจัดเก็บ</string>
-    <string name="patch_select_dir_text">เลือกไดเร็กทอรีเพื่อจัดเก็บ apks ที่แพตช์แล้ว</string>
     <string name="patch_select_dir_error">เกิดข้อผิดพลาดเมื่อตั้งค่าไดเร็กทอรีการจัดเก็บ</string>
-    <string name="patch_from_storage">เลือก apk จากที่เก็บข้อมูล</string>
-    <string name="patch_from_applist">เลือกแอพที่ติดตั้ง</string>
-    <string name="patch_mode">โหมดแพทช์</string>
-    <string name="patch_local">ท้องถิ่น</string>
-    <string name="patch_local_desc">แพทช์แอปที่ไม่มีโมดูลฝังอยู่\nขอบเขต Xposed สามารถเปลี่ยนแปลงได้แบบไดนามิกโดยไม่ต้องแพตช์ใหม่\nแอพที่ได้รับการติดตั้งในเครื่องสามารถทำงานได้บนอุปกรณ์ในเครื่องเท่านั้น</string>
-    <string name="patch_integrated">แบบบูรณาการ</string>
-    <string name="patch_integrated_desc">Patch an app with modules embedded.\nThe patched app can run without the manager, but cannot be managed dynamically.\nIntegrated patched apps can be used on devices that do not have NPatch Manager installed.</string>
-    <string name="patch_embed_modules">โมดูลฝังตัว</string>
     <string name="patch_debuggable">แก้จุดบกพร่องได้</string>
     <string name="patch_sigbypass">บายพาสลายเซ็น</string>
     <string name="patch_sigbypasslv0">lv0: ปิด</string>
@@ -67,9 +30,6 @@
     <string name="patch_uninstall_text">เนื่องจากลายเซ็นต่างกัน คุณต้องถอนการติดตั้งแอปเดิมก่อนที่จะติดตั้งแอปที่แพตช์\nตรวจสอบให้แน่ใจว่าคุณได้สำรองข้อมูลส่วนบุคคลแล้ว</string>
     <string name="patch_install_successfully">ติดตั้งสำเร็จ</string>
     <string name="patch_install_failed">ติดตั้งไม่สำเร็จ</string>
-    <string name="patch_no_xposed_module"></string>
-    <!-- Select Apps Screen -->
-    <string name="screen_select_apps">เลือกแอพ</string>
     <!-- Settings Screen -->
     <string name="screen_settings">การตั้งค่า</string>
     <string name="settings_keystore">ที่เก็บคีย์ลายเซ็น</string>
@@ -85,6 +45,4 @@
     <string name="settings_keystore_wrong_alias">ชื่อนามแฝงไม่ถูกต้อง</string>
     <string name="settings_keystore_wrong_alias_password">รหัสผ่านนามแฝงไม่ถูกต้อง</string>
     <string name="settings_detail_patch_logs">บันทึกการแก้ไขรายละเอียด</string>
-    <string name="settings_card_background_alpha">ความทึบของพื้นหลังการ์ด</string>
-    <string name="settings_card_background_alpha_summary">ใช้เมื่อเปิดใช้ภาพพื้นหลังแบบกำหนดเอง</string>
 </resources>

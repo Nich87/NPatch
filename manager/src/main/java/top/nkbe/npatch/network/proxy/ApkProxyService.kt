@@ -239,12 +239,6 @@ class ApkProxyService(
 
         fun cacheDir(context: Context): File = File(context.cacheDir, CACHE_DIR_NAME)
 
-        fun cachedVersionCode(context: Context): Long? =
-            cacheDir(context).listFiles()
-                ?.firstOrNull { it.isDirectory }
-                ?.name
-                ?.toLongOrNull()
-
         fun cacheSizeBytes(context: Context): Long =
             cacheDir(context).walkBottomUp().filter { it.isFile }.sumOf { it.length() }
 

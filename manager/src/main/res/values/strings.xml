@@ -23,132 +23,29 @@
     <string name="patch_result_notification_success_text">%1$s is ready to install.</string>
     <string name="patch_result_notification_failure_text">Could not patch %1$s. Open NPatch for details.</string>
     <string name="patch_result_notification_export_failed_text">%1$s was patched, but could not be saved to the selected folder.</string>
-    <string name="add">Add</string>
     <string name="install">Install</string>
     <string name="installing">Installing</string>
     <string name="uninstall">Uninstall</string>
     <string name="uninstalling">Uninstalling</string>
     <string name="copy_error">Copy error</string>
-    <string name="apps">Apps</string>
-    <string name="modules">Modules</string>
     <string name="shizuku_available">Shizuku service available</string>
     <string name="shizuku_unavailable">Shizuku service not connected</string>
-    <string name="status_active">Active</string>
-    <string name="status_inactive">Inactive</string>
     <string name="screen_home">Home</string>
-    <string name="screen_repo">Repo</string>
-    <string name="off">Off</string>
     <string name="error_unknown">Unknown error</string>
 
     <!-- Home Screen -->
     <string name="home_shizuku_warning">Some functions unavailable</string>
-    <string name="home_shizuku_optional_summary">Optional extension, not required by NPatch.</string>
     <string name="home_api_version">API Version</string>
-    <string name="home_npatch_version">NPatch Version</string>
-    <string name="home_framework_version">Framework Version</string>
-    <string name="home_system_version">System Version</string>
-    <string name="home_device">Device</string>
-    <string name="home_system_abi">System ABI</string>
     <string name="home_info_copied">Copied to clipboard</string>
-    <string name="home_support">Support</string>
-    <string name="home_about">About NPatch</string>
-    <string name="home_description">NPatch is a free non-root Xposed framework based on Vector.</string>
-    <string name="home_contribute">Take part</string>
-    <string name="home_review_change">Review a change</string>
-    <string name="home_discussions">Discussions</string>
-    <string name="home_test_canary">Test a canary build</string>
-    <string name="home_report_problem">Report a problem</string>
-    <string name="home_recent_activity">Recent activity</string>
-    <string name="home_activity_summary">%1$d commits by %2$d people</string>
-    <string name="home_activity_rest">Taking a rest — saved activity. Pull to refresh.</string>
-    <string name="home_activity_offline">Could not load project activity. Pull to retry.</string>
-    <string name="home_project_stats">%1$s stars · %2$s forks</string>
-    <string name="home_appearance_theme">Theme</string>
-    <string name="home_appearance_color">Color</string>
     <string name="home_appearance_amoled">AMOLED black</string>
     <string name="home_appearance_amoled_summary">Use true black for dark background surfaces</string>
-    <string name="home_appearance_ambience">Header ambience</string>
-    <string name="home_ambience_circuit">Circuit</string>
-    <string name="home_ambience_none">None</string>
-    <string name="ambience_snow">Snow</string>
-    <string name="ambience_maze">Maze</string>
-    <string name="ambience_circuit">Circuit</string>
-    <string name="ambience_matrix">Code rain</string>
-    <string name="ambience_none">Still</string>
-    <string name="home_appearance_navigation">Navigation</string>
-
-    <!-- About Screen -->
-    <string name="about_view_source_code"><![CDATA[View source code at %1$s]]></string>
-    <string name="about_author_summary">NPatch maintainer</string>
-    <string name="about_disclaimer_title">Disclaimer</string>
-    <string name="about_disclaimer_body">NPatch is provided only for learning, research, and legitimate app compatibility work. Please respect local laws, app terms, and the rights of original developers. You are responsible for how patched apps and modules are used on your device.</string>
-    <string name="about_links_title">Links</string>
-    <string name="about_official_website">Website</string>
-    <string name="about_link_website_summary">Visit the website of NkBe</string>
-    <string name="about_link_github_summary">View source code and releases</string>
-    <string name="about_link_telegram_summary">Subscribe to our channel</string>
-    <string name="about_acknowledgments_title">Special thanks (unordered)</string>
-    <string name="about_ack_rovo89_summary">Founder of the Xposed Framework; the originator and pioneer of the entire modular ecosystem.</string>
-    <string name="about_ack_lsposed_team_summary">With thanks to the LSPosed Team for their continuous contributions to the Xposed ecosystem and low-level injection techniques.</string>
-    <string name="about_ack_jingmatrix_summary">Author of Vector, whose outstanding framework architecture provided a vital foundation and inspiration for NPatch.</string>
-    <string name="about_ack_lspatch_summary">A pioneer in rootless patching solutions, proving the feasibility of dynamic Xposed environment loading via manager-side implementation.</string>
-    <string name="about_ack_libxposed_summary">The driving force behind Xposed API standardisation, bringing type safety and clear conventions to the module development world.</string>
-    <string name="about_ack_winter_summary">My very first financial supporter; thank you for such early and direct encouragement.</string>
-    <string name="about_ack_m558_summary">The one who keeps the gears turning behind the scenes — thank you for the quiet but indispensable support.</string>
-    <string name="about_ack_community_summary">Thanks to all users involved in testing, submitting PRs, and reporting issues to drive the project forward together.</string>
 
     <!-- Manage Screen -->
-    <string name="screen_manage">Manage</string>
     <string name="manage_loading">Loading</string>
-    <string name="manage_running">Running</string>
-    <string name="manage_not_running">Not running</string>
-    <string name="manage_active_of">%1$d of %2$d active</string>
-    <string name="manage_search">Search</string>
-    <string name="manage_no_search_results">No search results</string>
-    <string name="manage_no_apps">No patched apps yet</string>
-    <string name="manage_rolling">Rolling</string>
-    <string name="manage_update_loader">Update loader</string>
-    <string name="manage_update_loader_successfully">Update successfully</string>
-    <string name="manage_update_loader_failed">Update failed</string>
-    <string name="manage_module_scope">Module scope</string>
-    <string name="manage_module_scope_updated">Module scope has been updated</string>
-    <string name="manage_optimize">Optimize</string>
-    <string name="manage_optimize_successfully">Optimize successfully</string>
-    <string name="manage_optimize_failed">Optimize failed</string>
-    <string name="manage_force_stop">Force stop</string>
-    <string name="manage_force_stop_successfully">Force stop successfully</string>
-    <string name="manage_force_stop_failed">Force stop failed</string>
-    <string name="manage_force_restart">Force restart</string>
-    <string name="manage_force_restart_successfully">Force restart successfully</string>
-    <string name="manage_force_restart_failed">Force restart failed</string>
-    <string name="manage_uninstall_successfully">Uninstall successfully</string>
-    <string name="manage_no_modules">No modules yet</string>
-    <string name="manage_module_settings">Module settings</string>
-    <string name="manage_app_info">App info</string>
-    <string name="manage_export_diagnostics">Export diagnostic logs</string>
-    <string name="manage_export_diagnostics_chooser">Share patched-app diagnostic logs</string>
-    <string name="manage_export_diagnostics_failed">Failed to export diagnostic logs</string>
-    <string name="manage_module_pipeline_modern" translatable="false">Modern</string>
-<string name="manage_module_pipeline_legacy" translatable="false">Legacy</string>
-    <string name="manage_module_pipeline_unsupported">Unsupported</string>
-    <string name="manage_module_api_version" translatable="false">API %1$d</string>
-    <string name="manage_module_api_unsupported">Unsupported API %1$d</string>
-    <string name="manage_module_unsupported_warning">API %1$d is not supported by the modern pipeline</string>
-    <string name="manage_check_manager_package_name">This program is managed by %1$s\nModifying the scope %2$s within this manager will not take effect\nPlease re-patch to resolve this issue</string>
 
     <!-- New Patch Screen -->
     <string name="screen_new_patch">New Patch</string>
-    <string name="patch_select_dir_title">Select storage directory</string>
-    <string name="patch_select_dir_text">Select a directory to store the patched apks</string>
     <string name="patch_select_dir_error">Error when setting storage directory</string>
-    <string name="patch_from_applist">Select an installed app</string>
-    <string name="patch_from_installed_modules">Select installed Xposed modules</string>
-    <string name="patch_mode">Patch Mode</string>
-    <string name="patch_local">Local</string>
-    <string name="patch_local_desc">Patches apps without embedding modules.\nThe Xposed scope can be dynamically changed without needing to re-patch.\nThis mode can only be used locally with the NPatch Manager.</string>
-    <string name="patch_integrated">Integrated</string>
-    <string name="patch_integrated_desc">Patches apps with built-in modules.\nThe patched app can run independently without the Manager, but it cannot dynamically manage configurations.\nThis mode is suitable for apps that need to run on devices without the NPatch Manager installed.</string>
-    <string name="patch_embed_modules">Embed modules</string>
     <string name="patch_advanced">Advanced options</string>
     <string name="patch_debuggable">Debuggable</string>
     <string name="patch_sigbypass">Signature bypass</string>
@@ -158,15 +55,9 @@
     <string name="patch_sigbypasslv1_desc">Adds Java IO and native openat/openat64 redirection so signature-related file reads use the original APK</string>
     <string name="patch_sigbypasslv2">High</string>
     <string name="patch_sigbypasslv2_desc">Builds on Basic by restoring the original AppComponentFactory and hooking getPackageArchiveInfo / hasSigningCertificate for stricter verification paths</string>
-    <string name="patch_sigbypasslv3">Extreme</string>
-    <string name="patch_sigbypasslv3_desc">Builds on High by hooking the PackageInfo(Parcel) constructor so signatures are replaced across binder unparceling paths</string>
-    <string name="patch_new_package">Patch New PackageName</string>
-    <string name="hint_patch_new_package">Input a new package for app</string>
     <string name="patch_override_version_code">Override version code</string>
     <string name="patch_override_version_code_desc">Override the patched app\'s version code with a custom value, defaulting to the maximum 2147483647.\nWhen the package name and signing certificate match the installed app and this value is greater than or equal to the installed app\'s version code, this may prevent the Play Store from offering updates and allow installation over the existing copy. Generally does not affect the version code actually perceived by the application</string>
     <string name="patch_custom_version_code">Custom version code</string>
-    <string name="patch_inject_mt_provider">Inject Files Provider</string>
-    <string name="patch_inject_mt_provider_desc">Inject file providers to manage files in the data directory without root privileges (From MT Manager)</string>
     <string name="patch_use_microg">Force enable MicroG support</string>
     <string name="patch_use_microg_desc">Redirect GMS requests to the community version of MicroG (such as ReVanced GmsCore). Applicable to Google apps like YouTube, requires manually installing the corresponding MicroG service.</string>
     <string name="patch_output_log_to_media">Output Log to Media Directory</string>
@@ -179,7 +70,6 @@
     <string name="patch_uninstall_text">Due to different signatures, you need to uninstall the original app before installing the patched one.\nMake sure you have backed up personal data.</string>
     <string name="patch_install_successfully">Install successfully</string>
     <string name="patch_install_failed">Install failed</string>
-    <string name="patch_no_xposed_module">No Xposed module(s) were found</string>
     <string name="patch_abort_title">Stop patching?</string>
     <string name="patch_abort_message">Patching will be terminated. The APK being generated and all temporary files are deleted.</string>
     <string name="patch_abort_confirm">Stop</string>
@@ -202,10 +92,6 @@
     <string name="patch_notification_channel">Patching</string>
     <string name="patch_notification_title">Patching</string>
     <string name="patch_notification_text">Patching continues in the background</string>
-
-    <!-- Select Apps Screen -->
-    <string name="screen_select_apps">Select apps</string>
-    <string name="screen_select_modules">Select Xposed modules</string>
 
     <!-- Welcome Screen -->
     <string name="welcome_version">Version %1$s</string>
@@ -251,122 +137,23 @@
     <string name="settings_storage_directory">change storage directory</string>
     <string name="settings_storage_directory_not_set">no path set</string>
     <string name="settings_detail_patch_logs">Detail patch logs</string>
-    <string name="settings_output_full_log">Output manager log to media</string>
-    <string name="settings_output_full_log_summary">Write manager logs to Android/media/top.nkbe.npatch/log for debugging</string>
     <string name="settings_view_welcome">View guide</string>
     <string name="settings_view_welcome_summary">Review the welcome and permission guide</string>
-    <string name="settings_manager_cache">Clear manager cache</string>
-    <string name="settings_manager_cache_summary">Clear module sync cache, repo cache, and temporary patch files while keeping your basic settings</string>
-    <string name="settings_manager_cache_dialog_text">This clears manager-side sync state and temporary files. Storage directory, keystore, language, and theme settings will be kept.</string>
-    <string name="settings_manager_cache_success">Manager cache cleared</string>
-    <string name="settings_manager_cache_failed">Failed to clear manager cache</string>
     <string name="settings_appearance_theme">Appearance &amp; Theme</string>
     <string name="settings_modules">Modules</string>
     <string name="settings_modules_empty">No Xposed modules installed</string>
     <string name="settings_other_settings">Other Settings</string>
-    <string name="settings_network">Network</string>
-    <string name="settings_dns">DNS</string>
-    <string name="settings_dns_summary">DNS used by NPatch network requests</string>
-    <string name="settings_dns_tencent">Tencent DoH</string>
-    <string name="settings_dns_google">Google DoH</string>
-    <string name="settings_dns_cloudflare">Cloudflare DoH</string>
-    <string name="settings_dns_system">System</string>
-    <string name="settings_dns_custom">Custom</string>
-    <string name="settings_dns_custom_url">DoH URL</string>
-    <string name="settings_dns_custom_summary">Enter a complete HTTPS DNS-over-HTTPS endpoint.</string>
-    <string name="settings_dns_custom_invalid">Enter a valid HTTPS URL.</string>
     <string name="settings_theme_mode">Theme Mode</string>
     <string name="settings_theme_mode_system">Follow System</string>
-    <string name="settings_theme_mode_system_summary">Match the device light and dark appearance automatically</string>
     <string name="settings_theme_mode_light">Light Mode</string>
-    <string name="settings_theme_mode_light_summary">Use a bright interface all the time</string>
     <string name="settings_theme_mode_dark">Dark Mode</string>
-    <string name="settings_theme_mode_dark_summary">Use a dark interface all the time</string>
     <string name="settings_monet_dynamic_color">Monet Dynamic Color</string>
     <string name="settings_monet_dynamic_color_summary">Follow system wallpaper color (Android 12+ only)</string>
-    <string name="settings_floating_glass_bottom_bar">Floating glass bottom bar</string>
-    <string name="settings_floating_glass_bottom_bar_summary">Use a floating tab bar on the main screen\nLimited on Android 12 and below</string>
-    <string name="settings_floating_glass_bottom_bar_blur">Liquid glass bottom bar</string>
-    <string name="settings_floating_glass_bottom_bar_blur_summary">Enable blur, vibrancy, lens and highlight effects for the floating bottom bar</string>
-    <string name="settings_custom_background_image">Custom Background Image</string>
-    <string name="settings_card_background_alpha">Card background opacity</string>
-    <string name="settings_card_background_alpha_summary">Applies when a custom background image is enabled</string>
-    <string name="settings_clear">Clear</string>
-    <string name="accessibility_clear">Clear</string>
-    <string name="accessibility_sort">Sort</string>
-    <string name="accessibility_selected">Selected</string>
-    <string name="settings_builtin_theme_color">Built-in Theme Color</string>
-    <string name="settings_color_cherry_blossom">Cherry Blossom</string>
-    <string name="settings_color_default_blue">Default Blue</string>
-    <string name="settings_color_fresh_green">Fresh Green</string>
-    <string name="settings_color_elegant_purple">Elegant Purple</string>
-    <string name="settings_color_vibrant_orange">Vibrant Orange</string>
-    <string name="settings_color_cyan">Cyan</string>
-    <string name="settings_color_mint_green">Mint Green</string>
-    <string name="settings_color_pink">Pink</string>
-    <string name="settings_color_deep_pink">Deep Pink</string>
-    <string name="settings_color_ice_blue">Ice Blue</string>
-    <string name="settings_color_rose">Rose</string>
-    <string name="enable_install_activity_title">Enable install activity</string>
 
     <!-- MiUI Uninstall Desc -->
     <string name="miui_uninstall_title">💩卸💩载💩金💩凡💩</string>
     <string name="miui_uninstall_content">金凡祭天，法力无边\n所以這就是那個魔改到連使用者列表都無法訪問的系統嗎?
     \n\n(我們專門為小米手機桌面解除安裝添加了提示，提升使用者體驗)</string>
-
-    <!-- Modules Repo-->
-    <string name="sort_by_name">Application name</string>
-    <string name="sort_by_package_name">Package name</string>
-    <string name="sort_by_install_time">Install time</string>
-    <string name="sort_by_update_time">Update time</string>
-    <string name="refresh_pulling">Pull to refresh</string>
-    <string name="refresh_release">Release to refresh</string>
-    <string name="refresh_refresh">Refreshing</string>
-    <string name="refresh_complete">Refresh complete</string>
-    <string name="module_repo">Repository</string>
-    <string name="module_repo_up_to_date">All modules up to date</string>
-    <string name="module_repo_published_time">Published at %s</string>
-    <string name="module_repo_updated_time">Updated at %s</string>
-    <plurals name="module_repo_upgradable">
-        <item quantity="one">%d module upgradable</item>
-        <item quantity="other">%d modules upgradable</item>
-    </plurals>
-    <string name="sort_upgradable_first">Upgradable first</string>
-    <string name="list_empty">Nothing here</string>
-    <string name="need_update">Need to update</string>
-    <string name="installed">Installed</string>
-    <string name="menu_open_in_browser">Open in browser</string>
-    <string name="download_latest_version">Download latest version</string>
-    <string name="module_readme">Readme</string>
-    <string name="module_releases">Releases</string>
-    <string name="module_information">Info</string>
-    <string name="unknown_author">Unknown</string>
-    <string name="unknown_version">Unknown</string>
-    <string name="unknown_asset">Unknown Asset</string>
-    <string name="module_app_info">App info</string>
-    <string name="nav_back">Back</string>
-    <string name="module_information_homepage">Homepage</string>
-    <string name="module_information_source_url">Source code</string>
-    <string name="module_information_collaborators">Collaborators</string>
-    <string name="module_release_view_assets">Assets</string>
-    <string name="module_release_load_more">Show older versions</string>
-    <string name="module_release_no_more">No more release</string>
-    <string name="repo_load_failed">Failed to load module repo: %s</string>
-    <string name="repo_retry">Retry</string>
-    <string name="repo_loading_mirror">Loading mirror repository…</string>
-    <plurals name="module_release_assets_download_count">
-        <item quantity="one">%d download</item>
-        <item quantity="other">%d downloads</item>
-    </plurals>
-    <string name="download_asset">Download</string>
-    <string name="package_name">Package name</string>
-    <string name="author">Author</string>
-    <string name="repo_filter_scope_title">Filter by applicable app</string>
-    <string name="repo_filter_clear">Clear app filter</string>
-    <string name="time_just_now">Just now</string>
-    <string name="time_minutes_ago">%d minutes ago</string>
-    <string name="time_hours_ago">%d hours ago</string>
-    <string name="time_days_ago">%d days ago</string>
 
     <!-- LINE Manager Home -->
     <string name="line_app_name">LINE</string>
@@ -391,15 +178,11 @@
     <string name="patch_microg_vendor_hint">Package name of the MicroG vendor</string>
 
     <!-- Knot Release -->
-    <string name="knot_release_title">Knot v%1$s available</string>
-    <string name="knot_release_date">Released %1$s</string>
     <string name="knot_release_download">Download</string>
     <string name="knot_release_changelog">Changelog</string>
     <string name="knot_release_version">v%1$s</string>
     <string name="knot_release_latest">Latest</string>
     <string name="knot_releases_title">Knot Releases</string>
-    <string name="knot_releases_loading">Loading…</string>
-    <string name="knot_releases_error">Failed to load releases</string>
     <string name="knot_releases_empty">No releases found</string>
     <string name="knot_installed_version">Installed: v%1$s</string>
     <string name="knot_not_installed">Not installed</string>
