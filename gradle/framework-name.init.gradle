@@ -1,0 +1,11 @@
+gradle.beforeProject { project ->
+    def patcher = project.gradle.parent?.rootProject
+    if (project.path == ':xposed' && patcher != null && project.rootDir == new File(patcher.projectDir, 'core')) {
+        project.plugins.withId('com.android.library') {
+            project.extensions.getByName('androidComponents').finalizeDsl { android ->
+                def frameworkName = patcher.providers.gradleProperty('npatch.frameworkName').get()
+                android.defaultConfig.buildConfigField('String', 'FRAMEWORK_NAME', '"' + frameworkName + '"')
+            }
+        }
+    }
+}

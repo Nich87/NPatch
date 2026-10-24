@@ -39,7 +39,7 @@ public class EmbeddedXposedService extends IXposedService.Stub {
 
     @Override
     public String getFrameworkName() {
-        return "NPatch";
+        return LSPConfig.FRAMEWORK_NAME;
     }
 
     @Override
