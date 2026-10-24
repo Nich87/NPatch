@@ -1,11 +1,18 @@
 package top.nkbe.npatch.ui.page.newpatch
 
+import androidx.compose.animation.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Api
 import androidx.compose.material.icons.outlined.AutoFixHigh
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CloudSync
@@ -13,6 +20,7 @@ import androidx.compose.material.icons.outlined.Numbers
 import androidx.compose.material.icons.outlined.Output
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material.icons.outlined.WorkOutline
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -20,14 +28,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import top.nkbe.npatch.R
 import top.nkbe.npatch.share.Constants
-import top.nkbe.npatch.ui.component.NPatchTopAppBar
 import top.nkbe.npatch.ui.component.GlassCard
+import top.nkbe.npatch.ui.component.NPatchTopAppBar
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel.ViewAction
 import top.yukonga.miuix.kmp.basic.DropdownEntry
@@ -105,7 +119,7 @@ fun sigBypassLvDesc(level: Int): String {
  * 署名バイパス・MicroG（ベンダー指定込み）・デバッグなどの詳細設定を提供する。
  */
 @Composable
-fun PatchOptionsBody(modifier: Modifier) {
+fun PatchOptionsBody(modifier: Modifier, onAddEmbed: () -> Unit) {
     val viewModel = viewModel<NewPatchViewModel>()
 
     Column(
@@ -129,6 +143,30 @@ fun PatchOptionsBody(modifier: Modifier) {
                     text = viewModel.patchApp.app.packageName,
                     style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        PatchModeSelection(
+            useManager = viewModel.useManager,
+            moduleCount = viewModel.embeddedModules.size,
+            onUseManagerChange = viewModel::setUseManager,
+            onAddEmbed = { if (!viewModel.isLoadingEmbeddedModule) onAddEmbed() },
+        )
+        if (!viewModel.useManager) {
+            if (viewModel.isLoadingEmbeddedModule) {
+                Text(
+                    text = stringResource(R.string.manage_loading),
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                    style = MiuixTheme.textStyles.body2,
+                )
+            }
+            viewModel.embeddedModuleError?.let { error ->
+                Text(
+                    text = error,
+                    color = MiuixTheme.colorScheme.error,
+                    style = MiuixTheme.textStyles.body2,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                 )
             }
         }
@@ -208,6 +246,49 @@ fun PatchOptionsBody(modifier: Modifier) {
     }
 }
 
+@Composable
+internal fun PatchModeSelection(
+    useManager: Boolean,
+    moduleCount: Int,
+    onUseManagerChange: (Boolean) -> Unit,
+    onAddEmbed: () -> Unit,
+) {
+    val itemShape = RoundedCornerShape(16.dp)
+    SmallTitle(text = stringResource(R.string.patch_mode))
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(8.dp).selectableGroup(),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            PatchModeItem(
+                modifier = Modifier.clip(itemShape),
+                selected = useManager,
+                onClick = { onUseManagerChange(true) },
+                icon = Icons.Outlined.Api,
+                title = stringResource(R.string.patch_local),
+                desc = stringResource(R.string.patch_local_desc),
+            )
+            PatchModeItem(
+                modifier = Modifier.clip(itemShape),
+                selected = !useManager,
+                onClick = { onUseManagerChange(false) },
+                icon = Icons.Outlined.WorkOutline,
+                title = stringResource(R.string.patch_integrated),
+                desc = stringResource(R.string.patch_integrated_desc),
+                extraContent = {
+                    val label = stringResource(R.string.patch_embed_modules)
+                    Text(
+                        text = if (moduleCount > 0) "$label ($moduleCount)" else label,
+                        modifier = Modifier.padding(top = 8.dp).clickable(onClick = onAddEmbed),
+                        color = MiuixTheme.colorScheme.primary,
+                        style = MiuixTheme.textStyles.body2,
+                    )
+                },
+            )
+        }
+    }
+}
+
 private val MICROG_VENDOR_PRESETS = listOf(
     "app.revanced" to R.string.patch_microg_vendor_revanced,
     "com.google.android.gms" to R.string.patch_microg_vendor_microg,
@@ -276,4 +357,71 @@ private fun OverrideVersionCodeField() {
             .fillMaxWidth()
             .padding(horizontal = 12.dp),
     )
+}
+
+
+@Composable
+private fun PatchModeItem(
+    modifier: Modifier = Modifier,
+    selected: Boolean,
+    onClick: () -> Unit,
+    icon: ImageVector,
+    title: String,
+    desc: String? = null,
+    extraContent: (@Composable ColumnScope.() -> Unit)? = null
+) {
+    val backgroundColor = animateColorAsState(
+        targetValue = if (selected) MiuixTheme.colorScheme.primary.copy(alpha = 0.1f)
+        else Color.Transparent,
+        label = "SelectionItemBg"
+    ).value
+    val selectedLabel = stringResource(R.string.accessibility_selected)
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 72.dp)
+            .background(backgroundColor)
+            .semantics { stateDescription = if (selected) selectedLabel else "" }
+            .selectable(
+                selected = selected,
+                onClick = onClick,
+                role = Role.RadioButton
+            )
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            tint = if (selected) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurface
+        )
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MiuixTheme.textStyles.title3
+            )
+            if (desc != null || extraContent != null) {
+                AnimatedVisibility(
+                    visible = selected,
+                    enter = fadeIn() + expandVertically(expandFrom = Alignment.Top),
+                    exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Bottom)
+                ) {
+                    Column {
+                        if (desc != null) {
+                            Text(
+                                text = desc,
+                                modifier = Modifier.padding(top = 4.dp),
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.67f)
+                            )
+                        }
+                        extraContent?.invoke(this)
+                    }
+                }
+            }
+        }
+    }
 }

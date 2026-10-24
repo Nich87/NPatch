@@ -33,19 +33,18 @@ import androidx.compose.material.icons.rounded.OpenInBrowser
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Smartphone
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -78,6 +77,7 @@ import top.nkbe.npatch.ui.component.AppUpdateCard
 import top.nkbe.npatch.ui.component.GlassCard
 import top.nkbe.npatch.ui.component.GlassDialog
 import top.nkbe.npatch.ui.component.GlassDialogActions
+import top.nkbe.npatch.ui.component.GlassDialogChoiceItem
 import top.nkbe.npatch.ui.component.NPatchScaffold
 import top.nkbe.npatch.ui.component.ReleaseNotesMarkdown
 import top.nkbe.npatch.ui.theme.GlassStyle
@@ -496,58 +496,29 @@ private fun PatchChoiceDialog(
         onDismissRequest = { show.value = false; onDismiss() },
     ) {
         Column {
-            PatchChoiceItem(
+            GlassDialogChoiceItem(
                 icon = Icons.Rounded.CloudDownload,
                 text = stringResource(R.string.patch_from_proxy),
                 onClick = { show.value = false; onPatchFromProxy() },
             )
             if (showInstalledOption) {
-                PatchChoiceItem(
+                GlassDialogChoiceItem(
                     icon = Icons.Rounded.Smartphone,
                     text = stringResource(R.string.patch_installed_line),
                     onClick = { show.value = false; onPatchInstalled() },
                 )
             }
-            PatchChoiceItem(
+            GlassDialogChoiceItem(
                 icon = Icons.Rounded.FolderOpen,
                 text = stringResource(R.string.patch_from_apk),
                 onClick = { show.value = false; onPatchFromApk() },
             )
-            PatchChoiceItem(
+            GlassDialogChoiceItem(
                 icon = Icons.Rounded.Download,
                 text = stringResource(R.string.download_line),
                 onClick = { show.value = false; onDownload() },
             )
         }
-    }
-}
-
-@Composable
-private fun PatchChoiceItem(
-    icon: ImageVector,
-    text: String,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-            .heightIn(min = 56.dp)
-            .padding(horizontal = 16.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MiuixTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp),
-        )
-        Spacer(Modifier.width(16.dp))
-        Text(
-            text = text,
-            style = MiuixTheme.textStyles.body1,
-        )
     }
 }
 
@@ -786,7 +757,7 @@ private fun ProxyVersionSelectionDialog(
                     val recommendedSuffix = stringResource(R.string.select_line_version_recommended)
                     versions.forEach { ver ->
                         val formattedVer = formatLineVersionName(ver)
-                        PatchChoiceItem(
+                        GlassDialogChoiceItem(
                             icon = Icons.Rounded.CloudDownload,
                             text = if (ver == recommended) "$formattedVer ($recommendedSuffix)" else formattedVer,
                             onClick = {
