@@ -69,6 +69,11 @@
     <string name="screen_new_patch">New Patch</string>
     <string name="patch_select_dir_error">Error when setting storage directory</string>
     <string name="patch_advanced">Advanced options</string>
+    <string name="patch_mode">Patch Mode</string>
+    <string name="patch_local">Local</string>
+    <string name="patch_local_desc">Patches apps without embedding modules.\nThe Xposed scope can be dynamically changed without needing to re-patch.\nThis mode can only be used locally with the NPatch Manager.</string>
+    <string name="patch_integrated">Integrated</string>
+    <string name="patch_integrated_desc">Patches apps with built-in modules.\nThe patched app can run independently without the Manager, but it cannot dynamically manage configurations.\nThis mode is suitable for apps that need to run on devices without the NPatch Manager installed.</string>
     <string name="patch_debuggable">Debuggable</string>
     <string name="patch_sigbypass">Signature bypass</string>
     <string name="patch_sigbypasslv0">None</string>
@@ -265,4 +270,13 @@
     <string name="app_update_ready_title">Update ready to install</string>
     <string name="app_update_installing">Preparing the installer…</string>
     <string name="app_update_attention">Update needs attention</string>
+    <string name="patch_embed_modules">Embed modules</string>
+    <string name="patch_from_installed_modules">Select installed Xposed modules</string>
+    <string name="patch_from_storage">Select APK(s) from storage</string>
+    <string name="screen_select_modules">Select Xposed modules</string>
+    <string name="patch_embed_module_invalid">Select a supported Xposed module APK.</string>
+    <string name="patch_embed_modules_empty">No matching Xposed modules</string>
+    <string name="accessibility_selected">Selected</string>
+    <string name="accessibility_clear">Clear</string>
+    <string name="add">Add</string>
 </resources>

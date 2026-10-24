@@ -67,6 +67,11 @@
     <string name="screen_new_patch">新しいパッチ</string>
     <string name="patch_select_dir_error">ディレクトリの設定中にエラーが発生しました</string>
     <string name="patch_advanced">詳細設定</string>
+    <string name="patch_mode">パッチモード</string>
+    <string name="patch_local">ローカル</string>
+    <string name="patch_local_desc">モジュールを埋め込んでいないアプリにパッチを当てる。\nXposedのスコープは、再パッチなしで動的に変更できます。\nローカルでパッチを適用したアプリは、ローカルデバイスでのみ実行できます。</string>
+    <string name="patch_integrated">統合</string>
+    <string name="patch_integrated_desc">モジュールが埋め込まれたアプリにパッチを適用します。\nパッチ適用されたアプリはマネージャーなしで実行できますが、動的に管理することはできません。\n統合されたパッチ適用済みアプリは、NPatch Manager がインストールされていないデバイスでも使用できます。</string>
     <string name="patch_debuggable">デバッグを有効化</string>
     <string name="patch_sigbypass">署名のバイパス</string>
     <string name="patch_sigbypasslv0">なし</string>
@@ -256,4 +261,13 @@
     <string name="app_update_ready_title">更新をインストールできます</string>
     <string name="app_update_installing">インストーラーを準備中…</string>
     <string name="app_update_attention">更新の確認が必要です</string>
+    <string name="patch_embed_modules">モジュールを埋め込む</string>
+    <string name="patch_from_installed_modules">インストール済みから選択</string>
+    <string name="patch_from_storage">ストレージから選択</string>
+    <string name="screen_select_modules">モジュールを選択</string>
+    <string name="patch_embed_module_invalid">対応する Xposed モジュールの APK を選択してください。</string>
+    <string name="patch_embed_modules_empty">該当する Xposed モジュールがありません</string>
+    <string name="accessibility_selected">選択済み</string>
+    <string name="accessibility_clear">クリア</string>
+    <string name="add">追加</string>
 </resources>
