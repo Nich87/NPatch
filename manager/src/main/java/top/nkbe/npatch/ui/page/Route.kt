@@ -19,6 +19,9 @@ sealed interface Route : NavKey {
     ) : Route
 
     @Serializable
+    data object About : Route
+
+    @Serializable
     data class NewPatch(
         val id: Int,
         val data: String? = null
