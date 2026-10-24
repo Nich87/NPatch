@@ -3,6 +3,7 @@ package top.nkbe.npatch.share;
 public class LSPConfig {
 
     public static final LSPConfig instance;
+    public static final String FRAMEWORK_NAME = "${frameworkName}";
 
     public int API_CODE;
     public int VERSION_CODE;

@@ -43,6 +43,7 @@ import top.nkbe.npatch.config.DEFAULT_CARD_BACKGROUND_ALPHA_PERCENT
 import top.nkbe.npatch.config.DEFAULT_CUSTOM_COLOR
 import top.nkbe.npatch.ui.page.LocalNavigator
 import top.nkbe.npatch.ui.component.AppUpdateDialog
+import top.nkbe.npatch.ui.page.AboutScreen
 import top.nkbe.npatch.ui.page.MainScreen
 import top.nkbe.npatch.ui.page.MainTab
 import top.nkbe.npatch.ui.page.Navigator
@@ -227,6 +228,10 @@ class MainActivity : ComponentActivity() {
 
                                     entry<Route.NewPatch> { route ->
                                         NewPatchScreen(id = route.id, data = route.data)
+                                    }
+
+                                    entry<Route.About> {
+                                        AboutScreen(onBack = { navigator.pop() })
                                     }
                                 }
                             )

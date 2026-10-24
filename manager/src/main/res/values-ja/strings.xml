@@ -1,5 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_about">このアプリについて</string>
+    <string name="about_app_version">バージョン %1$s (%2$d)</string>
+    <string name="about_app_details">アプリとフレームワーク</string>
+    <string name="about_device_details">端末</string>
+    <string name="about_framework_name">フレームワーク名</string>
+    <string name="about_manager_version">マネージャーのバージョン</string>
+    <string name="about_core_version">コアのバージョン</string>
+    <string name="about_package">パッケージ名</string>
+    <string name="about_build_type">ビルドの種類</string>
+    <string name="about_model">メーカー / モデル</string>
+    <string name="about_device_code">デバイス / 製品</string>
+    <string name="about_android_version">Androidのバージョン</string>
+    <string name="about_security_patch">セキュリティパッチ</string>
+    <string name="about_abis">対応ABI</string>
+    <string name="about_process_architecture">マネージャーのプロセス</string>
+    <string name="about_process_64_bit">64ビット</string>
+    <string name="about_process_32_bit">32ビット</string>
+    <string name="about_android_build">システムビルド</string>
+    <string name="about_build_fingerprint">ビルドフィンガープリント</string>
+    <string name="about_kernel">カーネルのバージョン</string>
+    <string name="about_unknown">不明</string>
+    <string name="about_copy_details">詳細をコピー</string>
     <string name="patch_runtime_memory">メモリ</string>
     <string name="patch_runtime_io">ストレージ I/O</string>
     <string name="patch_runtime_cpu">CPU</string>

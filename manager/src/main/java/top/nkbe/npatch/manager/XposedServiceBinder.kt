@@ -11,6 +11,7 @@ import kotlinx.coroutines.runBlocking
 import top.nkbe.npatch.BuildConfig
 import top.nkbe.npatch.config.ConfigManager
 import top.nkbe.npatch.lspApp
+import top.nkbe.npatch.share.LSPConfig
 import top.nkbe.npatch.util.NPatchRemoteStore
 
 class XposedServiceBinder(
@@ -27,7 +28,7 @@ class XposedServiceBinder(
 
     override fun getFrameworkName(): String {
         enforceCaller()
-        return "NPatch"
+        return LSPConfig.FRAMEWORK_NAME
     }
 
     override fun getFrameworkVersion(): String {

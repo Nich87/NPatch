@@ -26,6 +26,7 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "NPatch"
+gradle.startParameter.initScripts = gradle.startParameter.initScripts + file("gradle/framework-name.init.gradle")
 include(
     ":manager",
     ":meta-loader",
