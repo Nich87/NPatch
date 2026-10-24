@@ -17,6 +17,7 @@ java {
 
 val generateTask = tasks.register<Copy>("generateJava") {
     val template = mapOf(
+        "frameworkName" to providers.gradleProperty("npatch.frameworkName").get(),
         "apiCode" to apiCode,
         "verCode" to verCode,
         "verName" to verName,

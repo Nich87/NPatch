@@ -42,6 +42,7 @@ import kotlinx.coroutines.withContext
 import nkbe.util.ModulePipeline
 import nkbe.util.NeoPackageManager
 import top.nkbe.npatch.LSPApplication
+import top.nkbe.npatch.BuildConfig
 import top.nkbe.npatch.R
 import top.nkbe.npatch.config.ConfigManager
 import top.nkbe.npatch.config.Configs
@@ -91,6 +92,7 @@ private data class InstalledModule(
 
 @Composable
 fun SettingsScreen() {
+    val navigator = LocalNavigator.current
     val scrollBehavior = MiuixScrollBehavior()
     NPatchScaffold(
         topBar = {
@@ -135,6 +137,14 @@ fun SettingsScreen() {
                     WelcomeGuide()
                     StorageDirectory()
                 }
+            }
+            GlassCard(modifier = Modifier.fillMaxWidth()) {
+                ArrowPreference(
+                    title = stringResource(R.string.settings_about),
+                    summary = stringResource(R.string.about_app_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
+                    startAction = { SettingsStartIcon(Icons.Outlined.Info) },
+                    onClick = { navigator.push(Route.About) },
+                )
             }
             Spacer(Modifier.height(24.dp))
         }

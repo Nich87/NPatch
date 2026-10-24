@@ -48,7 +48,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class RemoteApplicationService implements IFrameworkService {
+// Keep the framework's Binder local so cached modules survive Manager connection changes.
+public class RemoteApplicationService extends IFrameworkService.Stub {
 
     private static final String TAG = "NPatch";
     private static final String MODULE_SERVICE = "top.nkbe.npatch.manager.ModuleService";
@@ -615,11 +616,6 @@ public class RemoteApplicationService implements IFrameworkService {
             return new File(Environment.getDataDirectory(), "data/" + packageName + "/shared_prefs/")
                     .getAbsolutePath();
         }
-    }
-
-    @Override
-    public IBinder asBinder() {
-        return service == null ? null : service.asBinder();
     }
 
     @Override

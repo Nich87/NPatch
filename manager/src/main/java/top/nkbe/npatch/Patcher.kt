@@ -49,7 +49,7 @@ object Patcher {
                     add("--versioncode"); add(config.overrideVersionCodeValue.toString())
                 }
                 if (Configs.detailPatchLogs) add("-v")
-                embeddedModules?.forEach {
+                embeddedModules?.takeUnless { config.useManager }?.forEach {
                     add("-m"); add(it)
                 }
                 if (config.injectProvider) add("--provider")

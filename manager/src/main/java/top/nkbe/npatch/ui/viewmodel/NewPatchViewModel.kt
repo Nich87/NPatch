@@ -2,6 +2,7 @@ package top.nkbe.npatch.ui.viewmodel
 
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.StringRes
@@ -150,6 +151,11 @@ class NewPatchViewModel : ViewModel() {
     var outputLog by mutableStateOf(true)
     var hideLibs by mutableStateOf(false)
     var embeddedModules by mutableStateOf<List<AppInfo>>(emptyList())
+        private set
+    var embeddedModuleError by mutableStateOf<String?>(null)
+        private set
+    var isLoadingEmbeddedModule by mutableStateOf(false)
+        private set
     var hasExecutedIntent by mutableStateOf(false)
 
     private var patchJob: Job? = null
@@ -286,6 +292,8 @@ class NewPatchViewModel : ViewModel() {
         outputLog = true
         hideLibs = false
         embeddedModules = emptyList()
+        embeddedModuleError = null
+        isLoadingEmbeddedModule = false
         clearLogs()
         currentStage = ""
         patchError = null
@@ -295,6 +303,58 @@ class NewPatchViewModel : ViewModel() {
 
     private fun doneInit() {
         patchState = PatchState.SELECTING
+    }
+
+    fun setUseManager(value: Boolean) {
+        useManager = value
+        embeddedModuleError = null
+        if (!value) sigBypassLevel = sigBypassLevel.coerceAtMost(Constants.SIGBYPASS_HIGH)
+    }
+
+    fun updateEmbeddedModules(modules: List<AppInfo>) {
+        embeddedModules = modules.distinctBy { it.app.packageName }
+        embeddedModuleError = null
+    }
+
+    suspend fun selectEmbeddedModules(uris: List<Uri>) {
+        if (uris.isEmpty() || isLoadingEmbeddedModule) return
+        isLoadingEmbeddedModule = true
+        embeddedModuleError = null
+        val copiedFiles = mutableListOf<File>()
+        try {
+            val modules = withContext(Dispatchers.IO) {
+                val pm = lspApp.packageManager
+                uris.map { uri ->
+                    val file = File.createTempFile("module-", ".apk", lspApp.tmpApkDir)
+                    copiedFiles += file
+                    val input = requireNotNull(lspApp.contentResolver.openInputStream(uri))
+                    input.use { source -> file.outputStream().use { source.copyTo(it) } }
+                    val info = requireNotNull(pm.getPackageArchiveInfo(file.path, PackageManager.GET_META_DATA)) {
+                        lspApp.getString(R.string.patch_embed_module_invalid)
+                    }
+                    val app = requireNotNull(info.applicationInfo).apply {
+                        sourceDir = file.path
+                        publicSourceDir = file.path
+                    }
+                    val metadata = ModuleMetadataReader.read(info, pm)
+                    require(metadata != null && metadata.pipeline != ModulePipeline.UNSUPPORTED) {
+                        lspApp.getString(R.string.patch_embed_module_invalid)
+                    }
+                    AppInfo(app, pm.getApplicationLabel(app).toString(), metadata, info.longVersionCode, info.versionName)
+                }
+            }
+            val selected = (modules + embeddedModules).distinctBy { it.app.packageName }
+            embeddedModules = selected
+            copiedFiles.filter { file -> selected.none { it.app.sourceDir == file.path } }.forEach(File::delete)
+        } catch (cancelled: CancellationException) {
+            copiedFiles.forEach(File::delete)
+            throw cancelled
+        } catch (error: Exception) {
+            copiedFiles.forEach(File::delete)
+            embeddedModuleError = error.message ?: lspApp.getString(R.string.patch_embed_module_invalid)
+        } finally {
+            isLoadingEmbeddedModule = false
+        }
     }
 
     private fun configurePatch(app: AppInfo) {
@@ -326,7 +386,7 @@ class NewPatchViewModel : ViewModel() {
 
     private fun submitPatch() {
         Log.d(TAG, "Submit Patch (proxy=${proxyRequest != null})")
-        if (useManager) embeddedModules = emptyList()
+        if (isLoadingEmbeddedModule) return
         val patchSigBypassLevel = if (useManager) sigBypassLevel else sigBypassLevel.coerceAtMost(Constants.SIGBYPASS_HIGH)
         val patchHideLibs =
             hideLibs &&
@@ -364,7 +424,7 @@ class NewPatchViewModel : ViewModel() {
         newPackageName = newPackageName,
         config = patchConfig,
         apkPaths = apkPaths,
-        embeddedModules = embeddedModules.flatMap {
+        embeddedModules = (if (patchConfig.useManager) emptyList() else embeddedModules).flatMap {
             listOf(it.app.sourceDir) + (it.app.splitSourceDirs ?: emptyArray())
         }
     )
@@ -393,9 +453,10 @@ class NewPatchViewModel : ViewModel() {
                 exportError?.let { logger.e("Export failed: $it") }
                 logger.i("[Patch] Patching completed successfully!")
 
-                // 自動で Knot モジュールをスコープ登録
-                runCatching { autoScopeKnot() }
-                    .onFailure { logger.e("Auto-scope Knot failed: ${it.message}") }
+                if (patchConfig.useManager) {
+                    runCatching { autoScopeKnot() }
+                        .onFailure { logger.e("Auto-scope Knot failed: ${it.message}") }
+                }
                 PatchState.FINISHED
             } catch (cancellation: CancellationException) {
                 throw cancellation

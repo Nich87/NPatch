@@ -8,7 +8,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,30 +21,33 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
-import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.IconButton
-import top.yukonga.miuix.kmp.basic.SmallTopAppBar
-import top.nkbe.npatch.ui.component.GlassDialog
-import top.nkbe.npatch.ui.component.GlassDialogActions
-import top.yukonga.miuix.kmp.basic.SnackbarHost
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 import kotlinx.coroutines.launch
 import nkbe.util.NeoPackageManager
 import top.nkbe.npatch.R
+import top.nkbe.npatch.ui.component.GlassDialog
+import top.nkbe.npatch.ui.component.GlassDialogActions
+import top.nkbe.npatch.ui.component.GlassDialogChoiceItem
 import top.nkbe.npatch.ui.component.NPatchScaffold
 import top.nkbe.npatch.ui.component.NPatchTopAppBar
 import top.nkbe.npatch.ui.page.newpatch.ConfiguringFab
 import top.nkbe.npatch.ui.page.newpatch.ConfiguringTopBar
 import top.nkbe.npatch.ui.page.newpatch.DoPatchBody
 import top.nkbe.npatch.ui.page.newpatch.PatchOptionsBody
+import top.nkbe.npatch.ui.theme.GlassStyle
 import top.nkbe.npatch.ui.util.LocalSnackbarHost
-import top.nkbe.npatch.util.LINE_PACKAGE_NAME
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel.PatchState
 import top.nkbe.npatch.ui.viewmodel.NewPatchViewModel.ViewAction
+import top.nkbe.npatch.util.LINE_PACKAGE_NAME
+import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
+import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.SnackbarHost
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 const val ACTION_STORAGE = 0
 const val ACTION_APPLIST = 1
@@ -72,6 +78,12 @@ fun NewPatchScreen(
         "application/x-zip-compressed",
         "application/octet-stream",
     )
+
+    var showSelectModuleDialog by rememberSaveable { mutableStateOf(false) }
+    var showInstalledModules by rememberSaveable { mutableStateOf(false) }
+    val moduleStorageLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { modules ->
+        if (modules.isNotEmpty()) scope.launch { viewModel.selectEmbeddedModules(modules) }
+    }
 
     // インストール済みアプリが見つからない場合、ダウンロードページへ誘導するダイアログ
     var showDownloadDialog by remember { mutableStateOf(false) }
@@ -169,6 +181,18 @@ fun NewPatchScreen(
         ).show()
     }
 
+    if (showInstalledModules) {
+        SelectAppsScreen(
+            initialSelected = viewModel.embeddedModules,
+            onConfirm = {
+                viewModel.updateEmbeddedModules(it)
+                showInstalledModules = false
+            },
+            onBack = { showInstalledModules = false },
+        )
+        return
+    }
+
     NPatchScaffold(
         snackbarHost = { SnackbarHost(snackbarHost) },
         topBar = {
@@ -204,7 +228,8 @@ fun NewPatchScreen(
             when (viewModel.patchState) {
                 PatchState.CONFIGURING -> {
                     PatchOptionsBody(
-                        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)
+                        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+                        onAddEmbed = { showSelectModuleDialog = true },
                     )
                 }
                 PatchState.PATCHING,
@@ -219,6 +244,19 @@ fun NewPatchScreen(
                     }
                 }
             }
+
+            EmbeddedModuleSourceDialog(
+                show = showSelectModuleDialog,
+                onInstalled = {
+                    showSelectModuleDialog = false
+                    showInstalledModules = true
+                },
+                onStorage = {
+                    showSelectModuleDialog = false
+                    moduleStorageLauncher.launch(apkMimeTypes)
+                },
+                onDismiss = { showSelectModuleDialog = false },
+            )
 
             if (showAbortDialog) {
                 PatchAbortDialog(
@@ -309,5 +347,36 @@ fun LineDownloadDialog(
                 onConfirm = { show.value = false; onOpenDownload() },
             )
         }
+    }
+}
+
+@Composable
+private fun EmbeddedModuleSourceDialog(
+    show: Boolean,
+    onInstalled: () -> Unit,
+    onStorage: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    GlassDialog(
+        title = stringResource(R.string.patch_embed_modules),
+        show = show,
+        onDismissRequest = onDismiss,
+    ) {
+        GlassDialogChoiceItem(
+            icon = Icons.Rounded.Extension,
+            text = stringResource(R.string.patch_from_installed_modules),
+            onClick = onInstalled,
+        )
+        GlassDialogChoiceItem(
+            icon = Icons.Rounded.FolderOpen,
+            text = stringResource(R.string.patch_from_storage),
+            onClick = onStorage,
+        )
+        Spacer(Modifier.height(16.dp))
+        TextButton(
+            text = stringResource(android.R.string.cancel),
+            onClick = onDismiss,
+            modifier = Modifier.fillMaxWidth().heightIn(min = GlassStyle.dialogButtonMinHeight),
+        )
     }
 }

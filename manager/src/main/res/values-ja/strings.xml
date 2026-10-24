@@ -1,5 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_about">このアプリについて</string>
+    <string name="about_app_version">バージョン %1$s (%2$d)</string>
+    <string name="about_app_details">アプリとフレームワーク</string>
+    <string name="about_device_details">端末</string>
+    <string name="about_framework_name">フレームワーク名</string>
+    <string name="about_manager_version">マネージャーのバージョン</string>
+    <string name="about_core_version">コアのバージョン</string>
+    <string name="about_package">パッケージ名</string>
+    <string name="about_build_type">ビルドの種類</string>
+    <string name="about_model">メーカー / モデル</string>
+    <string name="about_device_code">デバイス / 製品</string>
+    <string name="about_android_version">Androidのバージョン</string>
+    <string name="about_security_patch">セキュリティパッチ</string>
+    <string name="about_abis">対応ABI</string>
+    <string name="about_process_architecture">マネージャーのプロセス</string>
+    <string name="about_process_64_bit">64ビット</string>
+    <string name="about_process_32_bit">32ビット</string>
+    <string name="about_android_build">システムビルド</string>
+    <string name="about_build_fingerprint">ビルドフィンガープリント</string>
+    <string name="about_kernel">カーネルのバージョン</string>
+    <string name="about_unknown">不明</string>
+    <string name="about_copy_details">詳細をコピー</string>
     <string name="patch_runtime_memory">メモリ</string>
     <string name="patch_runtime_io">ストレージ I/O</string>
     <string name="patch_runtime_cpu">CPU</string>
@@ -45,6 +67,11 @@
     <string name="screen_new_patch">新しいパッチ</string>
     <string name="patch_select_dir_error">ディレクトリの設定中にエラーが発生しました</string>
     <string name="patch_advanced">詳細設定</string>
+    <string name="patch_mode">パッチモード</string>
+    <string name="patch_local">ローカル</string>
+    <string name="patch_local_desc">モジュールを埋め込んでいないアプリにパッチを当てる。\nXposedのスコープは、再パッチなしで動的に変更できます。\nローカルでパッチを適用したアプリは、ローカルデバイスでのみ実行できます。</string>
+    <string name="patch_integrated">統合</string>
+    <string name="patch_integrated_desc">モジュールが埋め込まれたアプリにパッチを適用します。\nパッチ適用されたアプリはマネージャーなしで実行できますが、動的に管理することはできません。\n統合されたパッチ適用済みアプリは、NPatch Manager がインストールされていないデバイスでも使用できます。</string>
     <string name="patch_debuggable">デバッグを有効化</string>
     <string name="patch_sigbypass">署名のバイパス</string>
     <string name="patch_sigbypasslv0">なし</string>
@@ -234,4 +261,13 @@
     <string name="app_update_ready_title">更新をインストールできます</string>
     <string name="app_update_installing">インストーラーを準備中…</string>
     <string name="app_update_attention">更新の確認が必要です</string>
+    <string name="patch_embed_modules">モジュールを埋め込む</string>
+    <string name="patch_from_installed_modules">インストール済みから選択</string>
+    <string name="patch_from_storage">ストレージから選択</string>
+    <string name="screen_select_modules">モジュールを選択</string>
+    <string name="patch_embed_module_invalid">対応する Xposed モジュールの APK を選択してください。</string>
+    <string name="patch_embed_modules_empty">該当する Xposed モジュールがありません</string>
+    <string name="accessibility_selected">選択済み</string>
+    <string name="accessibility_clear">クリア</string>
+    <string name="add">追加</string>
 </resources>
