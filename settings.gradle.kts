@@ -8,9 +8,18 @@ pluginManagement {
     }
 }
 
+val microgRepositoryOverride = providers.environmentVariable("NPATCH_MICROG_REPOSITORY")
+    .orNull?.takeIf { it.isNotEmpty() }
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        if (microgRepositoryOverride != null) {
+            exclusiveContent {
+                forRepository { maven(microgRepositoryOverride) }
+                filter { includeGroup("com.github.Nich87.MicroG-RE") }
+            }
+        }
         google()
         mavenCentral()
         maven("https://jitpack.io")

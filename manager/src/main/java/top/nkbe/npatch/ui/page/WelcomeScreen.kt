@@ -238,7 +238,7 @@ private fun WelcomeIntroPage() {
                 )
                 Spacer(Modifier.height(18.dp))
                 Text(
-                    text = stringResource(R.string.app_name),
+                    text = stringResource(R.string.npatch_app_name),
                     style = MiuixTheme.textStyles.title1,
                     fontWeight = FontWeight.SemiBold,
                     color = MiuixTheme.colorScheme.onSurface,

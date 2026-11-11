@@ -14,6 +14,8 @@ public class PatchConfig {
     public final LSPConfig lspConfig;
     public final String managerPackageName;
     public final String newPackage;
+    /** Original manifest package, before applying --newpackage; null in older patches. */
+    public String originalPackageName;
     public final boolean useMicroG;
     public final boolean hideLibs;
     public final boolean usesCleartextTraffic;
