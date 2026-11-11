@@ -6,6 +6,7 @@ import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import kotlinx.coroutines.runBlocking
+import top.nkbe.npatch.billing.BuiltinBillingModule
 import top.nkbe.npatch.config.ConfigManager
 import top.nkbe.npatch.lspApp
 import org.matrix.vector.ipc.LoadedModule
@@ -47,7 +48,8 @@ object ManagerService : IFrameworkService.Stub() {
     override fun getLegacyModules(): List<LoadedModule> {
         val app = getCallingPackageName()
         val list = app?.let {
-            runBlocking { ConfigManager.getModuleFilesForApp(it) }
+            runBlocking { ConfigManager.getModuleFilesForApp(it) } +
+                listOfNotNull(BuiltinBillingModule.forApp(lspApp, it))
         }.orEmpty().filter { it.code?.legacy == true }
         Log.d(TAG, "$app calls getLegacyModules: $list")
         return recordModules(list)
@@ -56,7 +58,8 @@ object ManagerService : IFrameworkService.Stub() {
     override fun getModules(): List<LoadedModule> {
         val app = getCallingPackageName()
         val list = app?.let {
-            runBlocking { ConfigManager.getModuleFilesForApp(it) }
+            runBlocking { ConfigManager.getModuleFilesForApp(it) } +
+                listOfNotNull(BuiltinBillingModule.forApp(lspApp, it))
         }.orEmpty().filter { it.code?.legacy == false }
         Log.d(TAG, "$app calls getModules: $list")
         return recordModules(list)

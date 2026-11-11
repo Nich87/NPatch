@@ -46,6 +46,7 @@ kotlin {
 android {
     defaultConfig {
         applicationId = defaultManagerPackageName
+        manifestPlaceholders["basePackageName"] = "app.revanced"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild.cmake.abiFilters("armeabi-v7a", "x86")
         val managerSignatureAllowlist = (
@@ -62,6 +63,7 @@ android {
             .distinct()
             .joinToString(",") { encodeAllowlistEntry(it) }
         buildConfigField("String", "MANAGER_SIGNATURE_SHA256_ALLOWLIST", "\"$managerSignatureAllowlist\"")
+        buildConfigField("boolean", "OFFICIAL_PLAY_BILLING_TEST", "false")
     }
 
     dependenciesInfo {
@@ -83,6 +85,15 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField(
+                "boolean",
+                "OFFICIAL_PLAY_BILLING_TEST",
+                providers.gradleProperty("npatchOfficialPlayBillingTest")
+                    .map { it.toBooleanStrict().toString() }
+                    .getOrElse("false"),
+            )
+        }
         release {
             isMinifyEnabled = true      // 启用 R8/ProGuard 进行代码压缩、优化和混淆。
             isShrinkResources = true    // 启用资源缩减，移除未被引用的资源文件。
@@ -152,6 +163,7 @@ androidComponents {
 }
 
 dependencies {
+    implementation("com.github.Nich87.MicroG-RE:vending-app:7.2.2-npatch2")
     implementation("com.android.tools.build:apksig:8.0.2")
     implementation("androidx.work:work-runtime-ktx:2.11.0")
     implementation("io.noties.markwon:core:4.6.2")
@@ -202,6 +214,7 @@ dependencies {
 
     annotationProcessor(npatch.androidx.room.compiler)
     compileOnly(npatch.rikka.hidden.stub)
+    compileOnly("vector:legacy")
     ksp(npatch.androidx.room.compiler)
 
     debugImplementation(npatch.androidx.compose.ui.tooling)

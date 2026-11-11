@@ -461,6 +461,7 @@ public class NPatch {
                         usesCleartextTraffic,
                         overrideTargetSdk,
                         overrideTargetSdkValue, microgVendor);
+                config.originalPackageName = pair.packageName;
                 final var configBytes = new Gson().toJson(config).getBytes(StandardCharsets.UTF_8);
                 final var metadata = Base64.getEncoder().encodeToString(configBytes);
 

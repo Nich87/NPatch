@@ -38,3 +38,8 @@
 -dontwarn com.squareup.moshi.**
 -dontwarn retrofit2.**
 -dontwarn okio.**
+-dontwarn org.slf4j.impl.StaticLoggerBinder
+
+-keep class top.nkbe.npatch.billing.BillingHookEntry { *; }
+-dontwarn de.robv.android.xposed.**
+-dontwarn android.app.AndroidAppHelper

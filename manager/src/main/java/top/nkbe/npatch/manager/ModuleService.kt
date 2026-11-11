@@ -11,6 +11,8 @@ import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
 
 import kotlinx.coroutines.runBlocking
+import top.nkbe.npatch.billing.BillingModuleScope
+import top.nkbe.npatch.billing.BuiltinBillingModule
 import top.nkbe.npatch.config.ConfigManager
 import org.matrix.vector.ipc.LoadedModule
 import org.matrix.vector.ipc.IProcessChannel
@@ -24,6 +26,7 @@ class ModuleService : Service() {
     }
 
     private fun isScopedTarget(packageName: String): Boolean {
+        if (BillingModuleScope.isEligible(packageManager, packageName)) return true
         return runCatching {
                 runBlocking { ConfigManager.getModulesForApp(packageName).isNotEmpty() }
             }
@@ -89,7 +92,8 @@ class ModuleService : Service() {
 
         private fun modules(): List<LoadedModule> {
             val targetPackage = targetPackageName() ?: return emptyList()
-            val modules = runBlocking { ConfigManager.getModuleFilesForApp(targetPackage) }
+            val modules = runBlocking { ConfigManager.getModuleFilesForApp(targetPackage) } +
+                listOfNotNull(BuiltinBillingModule.forApp(this@ModuleService, targetPackage))
             HotReloadRegistry.recordModules(
                 Binder.getCallingUid(),
                 Binder.getCallingPid(),
