@@ -2,6 +2,7 @@ package top.nkbe.npatch.billing
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Bundle
 import android.util.Base64
 import android.util.Log
 import com.reandroid.arsc.chunk.xml.AndroidManifestBlock
@@ -34,13 +35,22 @@ object OriginalBillingIdentity {
         return try {
             val info = context.packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
             val metadata = info.metaData ?: return null
-            val configText = metadata.getString("npatch") ?: return null
+            certificate(metadata, packageName)
+        } catch (e: Exception) {
+            Log.w("NPatch-Billing", "Ignoring invalid NPatch original identity for $packageName", e)
+            null
+        }
+    }
+
+    internal fun certificate(metadata: Bundle, packageName: String): ByteArray? {
+        return try {
             val certificateHex = metadata.getString("fake-signature") ?: return null
             if (certificateHex.length !in 128..32768 || certificateHex.length % 2 != 0) return null
-            val config = JSONObject(String(Base64.decode(configText, Base64.DEFAULT), Charsets.UTF_8))
+            val config = patchConfig(metadata) ?: return null
             if (!config.optBoolean("useMicroG") || config.optString("originalSignature") != certificateHex) return null
-            val gmsPackage = "app.revanced.android.gms"
-            if (metadata.getString("$gmsPackage.SPOOFED_PACKAGE_NAME") != packageName) return null
+            val gmsPackage = "${config.optString("microgVendor", "app.revanced")}.android.gms"
+            val originalPackage = originalPackageName(metadata, packageName) ?: return null
+            if (metadata.getString("$gmsPackage.SPOOFED_PACKAGE_NAME") != originalPackage) return null
             val cert = certificateHex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
             val input = ByteArrayInputStream(cert)
             CertificateFactory.getInstance("X.509").generateCertificate(input)
@@ -64,7 +74,7 @@ object OriginalBillingIdentity {
     @Synchronized
     fun versionCode(context: Context, packageName: String): Int? {
         return try {
-            val info = context.packageManager.getPackageInfo(packageName, 0)
+            val info = context.packageManager.getPackageInfo(packageName, PackageManager.GET_META_DATA)
             val sourceDir = info.applicationInfo?.sourceDir ?: return null
             val cached = cache[packageName]
             if (cached != null && cached.sourceDir == sourceDir &&
@@ -72,9 +82,10 @@ object OriginalBillingIdentity {
                 cached.installedVersion == info.longVersionCode
             ) return cached.originalVersion
 
+            val originalPackage = originalPackageName(info.applicationInfo?.metaData, packageName) ?: return null
             val version = ZipFile(sourceDir).use { apk ->
                 val origin = apk.getEntry("assets/npatch/origin.apk") ?: return@use null
-                apk.getInputStream(origin).use { readVersionCode(it, packageName) }
+                apk.getInputStream(origin).use { readVersionCode(it, originalPackage) }
             }
             cache[packageName] = CacheEntry(sourceDir, info.lastUpdateTime, info.longVersionCode, version)
             version
@@ -83,7 +94,27 @@ object OriginalBillingIdentity {
         }
     }
 
-    internal fun readVersionCode(originApk: InputStream, packageName: String): Int? {
+    private fun patchConfig(metadata: Bundle): JSONObject? {
+        val text = metadata.getString("npatch") ?: return null
+        return JSONObject(String(Base64.decode(text, Base64.DEFAULT), Charsets.UTF_8))
+    }
+
+    internal fun originalPackageName(metadata: Bundle?, installedPackage: String): String? {
+        if (metadata == null) return installedPackage
+        val config = patchConfig(metadata) ?: return installedPackage
+        val targetPackage = config.optString("newPackage")
+        if (targetPackage.isNotEmpty() && targetPackage != installedPackage) return null
+        val originalPackage = config.optString("originalPackageName")
+        if (originalPackage.isNotBlank()) return originalPackage
+        // Older patches recorded the original name only in the MicroG metadata.
+        if (config.optBoolean("useMicroG")) {
+            val gmsPackage = "${config.optString("microgVendor", "app.revanced")}.android.gms"
+            return metadata.getString("$gmsPackage.SPOOFED_PACKAGE_NAME")?.takeIf { it.isNotBlank() }
+        }
+        return installedPackage
+    }
+
+    internal fun readVersionCode(originApk: InputStream, originalPackage: String): Int? {
         return try {
             ZipInputStream(originApk).use { zip ->
                 val buffer = ByteArray(8192)
@@ -105,7 +136,7 @@ object OriginalBillingIdentity {
                         val block = AndroidManifestBlock().apply {
                             readBytes(manifest.toByteArray().inputStream())
                         }
-                        if (block.packageName != packageName) return null
+                        if (block.packageName != originalPackage) return null
                         return block.versionCode?.takeIf { it > 0 }
                     }
                     zip.closeEntry()
