@@ -101,7 +101,7 @@ jobs:
     - name: CMake の設定
       uses: jwlawson/actions-setup-cmake@v2
       with:
-        cmake-version: '4.1.1'
+        cmake-version: '3.31.6'
 
     - name: Android 付属の cmake を削除
       shell: bash
