@@ -67,6 +67,8 @@ class LSPApplication : Application() {
 
         top.nkbe.npatch.update.UpdateNotifications.ensureChannel(this)
         top.nkbe.npatch.update.UpdateCheckWorker.schedule(this)
+        top.nkbe.npatch.update.KnotUpdateNotifications.ensureChannel(this)
+        top.nkbe.npatch.update.KnotUpdateCheckWorker.schedule(this)
 
         ShizukuApi.init()
         ShizukuApi.addOnReadyListener {

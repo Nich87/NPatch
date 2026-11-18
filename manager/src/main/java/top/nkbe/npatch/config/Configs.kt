@@ -87,5 +87,6 @@ object Configs {
 
     var includePrereleaseVersions by delegateStateOf(lspApp.prefs.getBoolean(PREFS_INCLUDE_PRERELEASE, false)) {
         lspApp.prefs.edit().putBoolean(PREFS_INCLUDE_PRERELEASE, it).apply()
+        top.nkbe.npatch.update.KnotUpdateChecker.onPrereleaseChannelChanged()
     }
 }

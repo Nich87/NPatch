@@ -39,6 +39,21 @@ object KnotReleaseLoader {
         .header("User-Agent", "NPatch-Manager")
 
     /**
+     * 更新確認用に最新ページだけを取得する。[cachedReleases] は全件表示用なので更新しない。
+     * 例外は呼び出し側 (WorkManager の再試行) に任せる。
+     */
+    suspend fun fetchRecentReleases(perPage: Int = 30): List<KnotRelease> = withContext(Dispatchers.IO) {
+        val request = commonHeaders(
+            Request.Builder().url("$ALL_RELEASES_URL?page=1&per_page=$perPage")
+        ).build()
+        buildClient().newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
+            val type = object : TypeToken<List<KnotRelease>>() {}.type
+            Gson().fromJson<List<KnotRelease>>(response.body.string(), type).orEmpty()
+        }
+    }
+
+    /**
      * GitHub API から全リリースを取得し、[cachedReleases] にキャッシュする。
      * キャッシュが有効期限内 (30 分) の場合は API を叩かずにキャッシュを返す。
      * [forceRefresh] = true で強制更新。

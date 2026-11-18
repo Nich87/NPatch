@@ -3,6 +3,8 @@ package top.nkbe.npatch.ui.activity
 import android.content.Context
 import android.content.Intent
 import top.nkbe.npatch.update.AppUpdater
+import top.nkbe.npatch.update.KnotUpdateChecker
+import top.nkbe.npatch.update.KnotUpdateNotifications
 import top.nkbe.npatch.update.UpdateNotifications
 import android.os.Build
 import android.os.Bundle
@@ -17,9 +19,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -91,6 +95,10 @@ class MainActivity : ComponentActivity() {
         if (intent?.getBooleanExtra(UpdateNotifications.OPEN_UPDATE, false) == true) {
             AppUpdater.openDetails()
             intent.removeExtra(UpdateNotifications.OPEN_UPDATE)
+        }
+        if (intent?.getBooleanExtra(KnotUpdateNotifications.OPEN_KNOT_UPDATE, false) == true) {
+            KnotUpdateChecker.requestOpen()
+            intent.removeExtra(KnotUpdateNotifications.OPEN_KNOT_UPDATE)
         }
     }
 
@@ -197,6 +205,17 @@ class MainActivity : ComponentActivity() {
                         val startMainRoute = startRoute as? Route.Main
                         var selectedMainTab by rememberSaveable {
                             mutableIntStateOf(startMainRoute?.initialTab ?: MainTab.Home.ordinal)
+                        }
+                        // Knot の更新通知から開いたら、Knot リリース一覧がある Home タブを表示する。
+                        // パッチ処理中の画面は閉じず、About のような閲覧専用の画面だけ戻す。
+                        val knotOpenRequest by KnotUpdateChecker.openRequests.collectAsState()
+                        var handledKnotOpenRequest by rememberSaveable { mutableLongStateOf(0L) }
+                        LaunchedEffect(knotOpenRequest) {
+                            if (knotOpenRequest <= handledKnotOpenRequest) return@LaunchedEffect
+                            handledKnotOpenRequest = knotOpenRequest
+                            if (backStack.none { it is Route.Main }) return@LaunchedEffect
+                            while (backStack.lastOrNull() is Route.About) backStack.removeLastOrNull()
+                            selectedMainTab = MainTab.Home.ordinal
                         }
 
                         CompositionLocalProvider(

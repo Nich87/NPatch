@@ -205,6 +205,13 @@
     <string name="knot_installed_version">インストール済み: v%1$s</string>
     <string name="knot_not_installed">未インストール</string>
     <string name="knot_installed">インストール済み</string>
+    <string name="knot_update_available">Knot v%1$s に更新できます</string>
+    <string name="knot_update_notification_summary">現在のバージョン：v%1$s。タップして Knot のリリース一覧を開きます。</string>
+    <string name="knot_update_notification_channel">Knot のアップデート</string>
+    <string name="knot_update_background">Knot の更新を通知</string>
+    <string name="knot_update_background_summary">Knot がインストールされている間、約6時間ごとに確認し、新しいリリースがあれば通知します。プレリリース版は「プレリリース版を含める」の設定に従います。省電力のため Android が確認を遅らせる場合があります。</string>
+    <string name="knot_update_enable_notifications">Knot の更新通知を許可する</string>
+    <string name="knot_update_notifications_blocked">通知が許可されていません。タップして Android の設定で Knot の更新通知を許可してください。</string>
     <string name="storage_not_set_title">保存先フォルダが未設定です</string>
     <string name="storage_not_set_message">保存先フォルダ (URI) が設定されていません。パッチ前に設定してください。</string>
     <string name="go_to_settings">設定画面へ</string>
