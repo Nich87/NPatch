@@ -7,6 +7,8 @@ import android.content.IntentFilter
 import android.util.Log
 import kotlinx.coroutines.launch
 import top.nkbe.npatch.lspApp
+import top.nkbe.npatch.update.KNOT_PACKAGE_NAME
+import top.nkbe.npatch.update.KnotUpdateNotifications
 import nkbe.util.NeoPackageManager
 
 class AppBroadcastReceiver : BroadcastReceiver() {
@@ -32,6 +34,10 @@ class AppBroadcastReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action in actions || intent.action == Intent.ACTION_UID_REMOVED) {
+            if (intent.data?.schemeSpecificPart == KNOT_PACKAGE_NAME) {
+                // Knot を更新・削除したら、古くなった Knot の更新通知を消す
+                KnotUpdateNotifications.dismissIfResolved(context)
+            }
             lspApp.globalScope.launch {
                 Log.i(TAG, "Received intent: $intent")
                 NeoPackageManager.fetchAppList()

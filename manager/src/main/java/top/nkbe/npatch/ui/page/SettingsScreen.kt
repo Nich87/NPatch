@@ -58,6 +58,7 @@ import top.nkbe.npatch.network.proxy.ApkProxyService
 import top.nkbe.npatch.ui.activity.MainActivity
 import top.nkbe.npatch.ui.component.NPatchScaffold
 import top.nkbe.npatch.ui.component.AppUpdatePreferences
+import top.nkbe.npatch.ui.component.KnotUpdatePreferences
 import top.nkbe.npatch.ui.util.LocalSnackbarHost
 import top.nkbe.npatch.util.LINE_PACKAGE_NAME
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -129,6 +130,7 @@ fun SettingsScreen() {
                 Column(Modifier.padding(vertical = 8.dp)) {
                     SmallTitle(text = stringResource(R.string.settings_other_settings))
                     AppUpdatePreferences()
+                    KnotUpdatePreferences()
                     ProxyVersionSettings()
                     ProxyCachePreference()
                     LanguagePreference()

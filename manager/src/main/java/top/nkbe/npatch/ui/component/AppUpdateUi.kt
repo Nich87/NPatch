@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -41,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -60,6 +62,7 @@ import top.nkbe.npatch.R
 import top.nkbe.npatch.ui.theme.GlassStyle
 import top.nkbe.npatch.update.UpdateState
 import top.nkbe.npatch.update.AppUpdater
+import top.nkbe.npatch.update.KnotUpdateChecker
 import top.nkbe.npatch.update.UpdateNotifications
 
 @Composable
@@ -142,7 +145,6 @@ fun AppUpdateCard(modifier: Modifier = Modifier) {
 
 @Composable
 internal fun AppUpdateStatusCard(state: UpdateState, modifier: Modifier = Modifier, onOpen: () -> Unit, onCheck: () -> Unit) {
-    val colors = MiuixTheme.colorScheme
     val busy = state.checking || state.downloading || state.installing
     if (state.upToDate && !busy && state.release == null && state.file == null) return
     val title = when {
@@ -161,11 +163,40 @@ internal fun AppUpdateStatusCard(state: UpdateState, modifier: Modifier = Modifi
         state.release != null && !busy -> stringResource(R.string.app_update_open)
         else -> stringResource(R.string.app_update_installed, BuildConfig.VERSION_NAME)
     }
-    Surface(
+    UpdateStatusCard(
+        title = title,
+        summary = summary,
         onClick = { if (state.release != null || busy) onOpen() else onCheck() },
+        modifier = modifier,
+        highlighted = state.release != null || busy,
+        busy = busy,
+        icon = when {
+            state.release != null -> Icons.Rounded.SystemUpdate
+            state.message != null && !state.upToDate -> Icons.Rounded.ErrorOutline
+            state.upToDate -> Icons.Rounded.CheckCircle
+            else -> Icons.Rounded.SystemUpdate
+        },
+        progress = if (state.downloading) state.progress ?: 0 else null,
+    )
+}
+
+@Composable
+internal fun UpdateStatusCard(
+    title: String,
+    summary: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    highlighted: Boolean = true,
+    busy: Boolean = false,
+    icon: ImageVector = Icons.Rounded.SystemUpdate,
+    progress: Int? = null,
+) {
+    val colors = MiuixTheme.colorScheme
+    Surface(
+        onClick = onClick,
         modifier = modifier.fillMaxWidth(),
         shape = GlassStyle.cardShape,
-        color = GlassStyle.surfaceColor(highlighted = state.release != null || busy),
+        color = GlassStyle.surfaceColor(highlighted = highlighted),
         contentColor = colors.onSurface,
         border = GlassStyle.border(highlighted = true),
     ) {
@@ -173,13 +204,7 @@ internal fun AppUpdateStatusCard(state: UpdateState, modifier: Modifier = Modifi
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Box(Modifier.size(52.dp).background(colors.primary.copy(alpha = 0.18f), CircleShape), contentAlignment = Alignment.Center) {
                     if (busy) CircularProgressIndicator(Modifier.size(26.dp), color = colors.primary, strokeWidth = 3.dp)
-                    else Icon(
-                        if (state.release != null) Icons.Rounded.SystemUpdate
-                        else if (state.message != null && !state.upToDate) Icons.Rounded.ErrorOutline
-                        else if (state.upToDate) Icons.Rounded.CheckCircle
-                        else Icons.Rounded.SystemUpdate,
-                        contentDescription = null, tint = colors.primary, modifier = Modifier.size(28.dp),
-                    )
+                    else Icon(icon, contentDescription = null, tint = colors.primary, modifier = Modifier.size(28.dp))
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(title, color = colors.onSurface, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
@@ -187,8 +212,8 @@ internal fun AppUpdateStatusCard(state: UpdateState, modifier: Modifier = Modifi
                 }
                 Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = colors.primary)
             }
-            if (state.downloading) LinearProgressIndicator(
-                progress = { (state.progress ?: 0) / 100f }, modifier = Modifier.fillMaxWidth(), color = colors.primary,
+            if (progress != null) LinearProgressIndicator(
+                progress = { progress / 100f }, modifier = Modifier.fillMaxWidth(), color = colors.primary,
             )
         }
     }
@@ -210,7 +235,7 @@ fun AppUpdateDialog(automaticChecksEnabled: Boolean = true) {
         if (!automaticChecksEnabled) return@LaunchedEffect
         AppUpdater.check(automatic = true)
         val preferences = context.getSharedPreferences("app_updates", android.content.Context.MODE_PRIVATE)
-        if (AppUpdater.backgroundChecks && Build.VERSION.SDK_INT >= 33 &&
+        if ((AppUpdater.backgroundChecks || KnotUpdateChecker.backgroundChecks) && Build.VERSION.SDK_INT >= 33 &&
             !preferences.getBoolean("notification_permission_requested", false)) {
             preferences.edit().putBoolean("notification_permission_requested", true).apply()
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -229,60 +254,90 @@ internal fun AppUpdateDetailsDialog(state: UpdateState, onDismiss: () -> Unit, o
     if (!state.showDialog) return
     val colors = MiuixTheme.colorScheme
     val release = state.release
+    UpdateDetailsDialog(
+        title = if (release != null) stringResource(R.string.app_update_available, release.version)
+            else stringResource(R.string.app_update_check),
+        installed = stringResource(R.string.app_update_installed, BuildConfig.VERSION_NAME),
+        onDismiss = onDismiss,
+        details = {
+            if (release != null) {
+                if (release.notes.isBlank()) Text(stringResource(R.string.app_update_no_notes), color = colors.onSurface)
+                else ReleaseNotesMarkdown(release.notes)
+            }
+            if (state.checking) Text(stringResource(R.string.app_update_checking), color = colors.onSurface)
+            if (state.downloading) {
+                Text(stringResource(R.string.app_update_downloading, state.progress ?: 0), color = colors.onSurface)
+                LinearProgressIndicator(progress = { (state.progress ?: 0) / 100f }, modifier = Modifier.fillMaxWidth(), color = colors.primary)
+            }
+            if (state.installing) Text(stringResource(R.string.app_update_installing), color = colors.onSurface)
+            state.message?.let { Text(it, color = colors.onSurface) }
+            if (state.file != null) Text(stringResource(R.string.app_update_ready), color = colors.onSurface)
+        },
+    ) {
+        if (!state.checking && !state.downloading && !state.installing) {
+            UpdateDetailsAction(
+                text = stringResource(when {
+                    release == null -> R.string.app_update_check
+                    state.file != null -> R.string.app_update_install
+                    else -> R.string.app_update_download
+                }),
+                onClick = {
+                    when {
+                        release == null -> onCheck()
+                        state.file != null -> onInstall()
+                        else -> {
+                            onDismiss()
+                            onDownload()
+                        }
+                    }
+                },
+            )
+        }
+    }
+}
+
+@Composable
+internal fun UpdateDetailsDialog(
+    title: String,
+    installed: String,
+    onDismiss: () -> Unit,
+    details: @Composable ColumnScope.() -> Unit,
+    action: @Composable () -> Unit,
+) {
+    val colors = MiuixTheme.colorScheme
     Dialog(onDismissRequest = onDismiss) {
         GlassDialogBackdrop()
         Surface(shape = GlassStyle.dialogShape, color = GlassStyle.dialogColor(), contentColor = colors.onSurface,
             border = GlassStyle.border()) {
             Column(Modifier.widthIn(max = 560.dp).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
-                    if (release != null) stringResource(R.string.app_update_available, release.version)
-                    else stringResource(R.string.app_update_check),
+                    title,
                     color = colors.onSurface, fontSize = 22.sp, fontWeight = FontWeight.SemiBold,
                 )
                 Column(Modifier.heightIn(max = 320.dp).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(stringResource(R.string.app_update_installed, BuildConfig.VERSION_NAME), color = colors.onSurfaceVariantSummary)
-                    if (release != null) {
-                        if (release.notes.isBlank()) Text(stringResource(R.string.app_update_no_notes), color = colors.onSurface)
-                        else ReleaseNotesMarkdown(release.notes)
-                    }
-                    if (state.checking) Text(stringResource(R.string.app_update_checking), color = colors.onSurface)
-                    if (state.downloading) {
-                        Text(stringResource(R.string.app_update_downloading, state.progress ?: 0), color = colors.onSurface)
-                        LinearProgressIndicator(progress = { (state.progress ?: 0) / 100f }, modifier = Modifier.fillMaxWidth(), color = colors.primary)
-                    }
-                    if (state.installing) Text(stringResource(R.string.app_update_installing), color = colors.onSurface)
-                    state.message?.let { Text(it, color = colors.onSurface) }
-                    if (state.file != null) Text(stringResource(R.string.app_update_ready), color = colors.onSurface)
+                    Text(installed, color = colors.onSurfaceVariantSummary)
+                    details()
                 }
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
-                    if (!state.checking && !state.downloading && !state.installing) {
-                        Button(
-                            onClick = {
-                                when {
-                                    release == null -> onCheck()
-                                    state.file != null -> onInstall()
-                                    else -> {
-                                        onDismiss()
-                                        onDownload()
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = colors.primary, contentColor = colors.onPrimary),
-                        ) {
-                            Text(stringResource(when {
-                                release == null -> R.string.app_update_check
-                                state.file != null -> R.string.app_update_install
-                                else -> R.string.app_update_download
-                            }), color = colors.onPrimary)
-                        }
-                    }
+                    action()
                     TextButton(onClick = onDismiss) {
                         Text(stringResource(R.string.app_update_later), color = colors.primary)
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+internal fun UpdateDetailsAction(text: String, onClick: () -> Unit) {
+    val colors = MiuixTheme.colorScheme
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.buttonColors(containerColor = colors.primary, contentColor = colors.onPrimary),
+    ) {
+        Text(text, color = colors.onPrimary)
     }
 }

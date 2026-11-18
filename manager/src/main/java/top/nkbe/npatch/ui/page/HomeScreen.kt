@@ -37,6 +37,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -78,18 +80,20 @@ import top.nkbe.npatch.ui.component.GlassCard
 import top.nkbe.npatch.ui.component.GlassDialog
 import top.nkbe.npatch.ui.component.GlassDialogActions
 import top.nkbe.npatch.ui.component.GlassDialogChoiceItem
+import top.nkbe.npatch.ui.component.KnotUpdateDetails
 import top.nkbe.npatch.ui.component.NPatchScaffold
 import top.nkbe.npatch.ui.component.ReleaseNotesMarkdown
+import top.nkbe.npatch.ui.component.UpdateStatusCard
 import top.nkbe.npatch.ui.theme.GlassStyle
 import top.nkbe.npatch.ui.util.KnotDownloader
 import top.nkbe.npatch.ui.util.LocalSnackbarHost
 import top.nkbe.npatch.ui.util.checkIsApkFixedByLSP
 import top.nkbe.npatch.ui.util.rememberDisplayedReleases
+import top.nkbe.npatch.update.KNOT_PACKAGE_NAME
+import top.nkbe.npatch.update.KnotUpdateChecker
+import top.nkbe.npatch.update.KnotUpdatePolicy
 import top.nkbe.npatch.util.LINE_PACKAGE_NAME
 import top.nkbe.npatch.util.formatLineVersionName
-
-/** Knot のパッケージ名 */
-private const val KNOT_PACKAGE_NAME = "app.zipper.knot"
 
 @Composable
 fun HomeScreen(
@@ -113,7 +117,15 @@ fun HomeScreen(
     var releases by remember { mutableStateOf<List<KnotRelease>>(emptyList()) }
     var releasesLoading by remember { mutableStateOf(true) }
     val displayedReleases = rememberDisplayedReleases(releases)
+    // displayedReleases はプレリリース設定で絞り込み済み
+    val knotUpdate = remember(displayedReleases, installedKnotVersion) {
+        KnotUpdatePolicy.findUpdate(displayedReleases, installedKnotVersion, includePrereleases = true)
+    }
     var refreshKey by remember { mutableStateOf(0) }
+    val knotOpenRequest by KnotUpdateChecker.openRequests.collectAsState()
+    var handledKnotOpenRequest by rememberSaveable { mutableLongStateOf(0L) }
+    var showKnotUpdate by rememberSaveable { mutableStateOf(false) }
+    var downloadingKnotRelease by remember { mutableStateOf<KnotRelease?>(null) }
     var showStorageWarning by remember { mutableStateOf(false) }
     var showPatchChoiceDialog by remember { mutableStateOf(false) }
     var showProxyVersionDialog by remember { mutableStateOf(false) }
@@ -122,12 +134,40 @@ fun HomeScreen(
     // context を保持するため remember で同一インスタンスを使い回す
     val downloader = remember { KnotDownloader(context) }
 
+    fun downloadKnot(release: KnotRelease) {
+        if (downloadingKnotRelease != null) return
+        val apk = release.apkAsset
+        val url = apk?.browserDownloadUrl
+        if (url == null) {
+            release.htmlUrl?.let { context.startActivity(Intent(Intent.ACTION_VIEW, it.toUri())) }
+            return
+        }
+        val fileName = apk.name ?: "Knot-v${release.version ?: release.tagName}.apk"
+        downloadingKnotRelease = release
+        scope.launch {
+            try {
+                if (downloader.downloadAndOpen(url, fileName)) showPatchChoiceDialog = true
+            } finally {
+                downloadingKnotRelease = null
+            }
+        }
+    }
+
     // 保存先フォルダ (URI) が未設定なら警告して設定画面へ誘導する
     fun navigateToPatch(action: Int, data: String? = null) {
         if (Configs.storageDirectory == null) {
             showStorageWarning = true
         } else {
             navigator.navigate(Route.NewPatch(action, data))
+        }
+    }
+
+    // Knot の更新通知から開いた時は、TTL キャッシュを使わず最新のリリース一覧を取得する
+    LaunchedEffect(knotOpenRequest) {
+        if (knotOpenRequest > handledKnotOpenRequest) {
+            handledKnotOpenRequest = knotOpenRequest
+            showKnotUpdate = true
+            refreshKey++
         }
     }
 
@@ -198,6 +238,18 @@ fun HomeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 item { AppUpdateCard(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
+                knotUpdate?.let { release ->
+                    item(key = "knot-update") {
+                        val busy = downloadingKnotRelease == release
+                        UpdateStatusCard(
+                            title = stringResource(R.string.knot_update_available, release.version.orEmpty()),
+                            summary = stringResource(if (busy) R.string.patch_stage_downloading else R.string.app_update_open),
+                            onClick = { showKnotUpdate = true },
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            busy = busy,
+                        )
+                    }
+                }
                 // ====== Centered app icon ======
                 item {
                     // Spacing between the top app bar and the icon
@@ -400,8 +452,9 @@ fun HomeScreen(
                             isLatest = index == 0,
                             installedVersion = installedKnotVersion,
                             context = context,
-                            downloader = downloader,
-                            onContinueToPatch = { showPatchChoiceDialog = true },
+                            isDownloading = downloadingKnotRelease == release,
+                            downloadEnabled = downloadingKnotRelease == null,
+                            onDownload = { downloadKnot(release) },
                         )
                         Spacer(Modifier.height(16.dp))
                     }
@@ -409,6 +462,22 @@ fun HomeScreen(
 
                 item { Spacer(Modifier.height(24.dp)) }
             }
+        }
+    }
+
+    if (showKnotUpdate && installedKnotVersion != null) {
+        knotUpdate?.let { release ->
+            KnotUpdateDetails(
+                release = release,
+                installedVersion = installedKnotVersion,
+                downloading = downloadingKnotRelease != null,
+                canDownload = release.apkAsset?.browserDownloadUrl != null,
+                onDismiss = { showKnotUpdate = false },
+                onDownload = {
+                    showKnotUpdate = false
+                    downloadKnot(release)
+                },
+            )
         }
     }
 
@@ -556,14 +625,12 @@ private fun KnotReleaseItem(
     isLatest: Boolean,
     installedVersion: String?,
     context: android.content.Context,
-    downloader: KnotDownloader,
-    onContinueToPatch: () -> Unit,
+    isDownloading: Boolean,
+    downloadEnabled: Boolean,
+    onDownload: () -> Unit,
 ) {
     val version = release.version ?: release.tagName ?: return
-    val apkAsset = release.assets.firstOrNull { it.name?.endsWith(".apk") == true }
-    var isDownloading by remember { mutableStateOf(false) }
     var showChangelog by remember(release.tagName) { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
 
     GlassDialog(
         title = stringResource(R.string.knot_release_version, version),
@@ -639,31 +706,8 @@ private fun KnotReleaseItem(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Button(
-                    onClick = {
-                        val downloadUrl = apkAsset?.browserDownloadUrl
-                        if (downloadUrl != null) {
-                            val fileName = apkAsset.name ?: "Knot-v$version.apk"
-                            isDownloading = true
-                            scope.launch {
-                                try {
-                                    // suspend するので完了まで isDownloading が true のまま維持される
-                                    val installed = downloader.downloadAndOpen(downloadUrl, fileName)
-                                    if (installed) {
-                                        // ダウンロード・インストール完了後にパッチ続行へ進む
-                                        onContinueToPatch()
-                                    }
-                                } finally {
-                                    isDownloading = false
-                                }
-                            }
-                        } else {
-                            // APK asset がない場合はブラウザでリリースページへ
-                            release.htmlUrl?.let { url ->
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                            }
-                        }
-                    },
-                    enabled = !isDownloading,
+                    onClick = onDownload,
+                    enabled = downloadEnabled,
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     cornerRadius = 24.dp,
                 ) {
@@ -705,6 +749,8 @@ private fun KnotReleaseItem(
         }
     }
 }
+
+private val KnotRelease.apkAsset get() = assets.firstOrNull { it.name?.endsWith(".apk") == true }
 
 @Composable
 private fun DialogMessageRow(text: String) {

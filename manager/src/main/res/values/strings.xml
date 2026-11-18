@@ -214,6 +214,13 @@
     <string name="knot_installed_version">Installed: v%1$s</string>
     <string name="knot_not_installed">Not installed</string>
     <string name="knot_installed">Installed</string>
+    <string name="knot_update_available">Knot v%1$s is available</string>
+    <string name="knot_update_notification_summary">Installed: v%1$s. Tap to open the Knot release list.</string>
+    <string name="knot_update_notification_channel">Knot updates</string>
+    <string name="knot_update_background">Notify about Knot updates</string>
+    <string name="knot_update_background_summary">Checks about every 6 hours while Knot is installed and notifies you when a new release is available. Pre-releases follow the \"Include Pre-releases\" setting. Android may delay checks to save battery.</string>
+    <string name="knot_update_enable_notifications">Allow Knot update notifications</string>
+    <string name="knot_update_notifications_blocked">Notifications are blocked. Tap to allow Knot update notifications in Android settings.</string>
     <string name="storage_not_set_title">Storage directory not set</string>
     <string name="storage_not_set_message">The storage directory is not set. Please set it before patching.</string>
     <string name="go_to_settings">Go to settings</string>
