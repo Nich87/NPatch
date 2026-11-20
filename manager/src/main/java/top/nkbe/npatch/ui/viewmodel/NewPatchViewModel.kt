@@ -205,20 +205,21 @@ class NewPatchViewModel : ViewModel() {
 
     private fun onDownloadProgress(progress: ApkProxyService.DownloadProgress) {
         updateLastLog(progress.message)
+        val downloadPercent = progress.percent.takeUnless { it == ApkProxyService.UNKNOWN_PERCENT }
         val detail = buildString {
             append("(${progress.fileIndex}/${progress.fileCount})")
-            if (progress.percent != ApkProxyService.UNKNOWN_PERCENT) append(" ${progress.percent}%")
+            if (downloadPercent != null) append(" $downloadPercent%")
         }
-        updateStage(R.string.patch_stage_downloading, detail)
+        updateStage(R.string.patch_stage_downloading, detail, downloadPercent)
     }
 
     /** ダウンロード中は毎秒十数回進捗が来るため、表示が変わるときだけ通知を更新する。 */
-    private fun updateStage(@StringRes resId: Int, detail: String = "") {
+    private fun updateStage(@StringRes resId: Int, detail: String = "", downloadPercent: Int? = null) {
         val stage = lspApp.getString(resId)
         val text = if (detail.isEmpty()) stage else "$stage $detail"
         if (text == currentStage) return
         currentStage = text
-        PatchForegroundService.updateProgress(lspApp, text)
+        PatchForegroundService.updateProgress(lspApp, text, downloadPercent)
     }
 
     /** [MAX_LOG_LINES] を超えた分は古い行から捨てる。 */

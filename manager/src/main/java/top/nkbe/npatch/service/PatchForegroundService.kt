@@ -25,7 +25,7 @@ class PatchForegroundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         createNotificationChannel(this)
-        val notification = buildNotification(this, progressText)
+        val notification = buildNotification(this, progress)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(
                 NOTIFICATION_ID,
@@ -48,6 +48,8 @@ class PatchForegroundService : Service() {
         super.onDestroy()
     }
 
+    private data class Progress(val text: String, val downloadPercent: Int? = null)
+
     companion object {
         private const val CHANNEL_ID = "patch_progress"
         private const val NOTIFICATION_ID = 1001
@@ -64,10 +66,10 @@ class PatchForegroundService : Service() {
         private var stopRequested = false
 
         @Volatile
-        private var progressText = ""
+        private var progress = Progress("")
 
         fun start(context: Context, progress: String) {
-            progressText = progress
+            this.progress = Progress(progress)
             stopRequested = false
             runCatching {
                 NotificationManagerCompat.from(context).cancel(COMPLETION_NOTIFICATION_ID)
@@ -78,19 +80,20 @@ class PatchForegroundService : Service() {
             }
         }
 
-        fun updateProgress(context: Context, progress: String) {
-            progressText = progress
+        fun updateProgress(context: Context, progress: String, downloadPercent: Int? = null) {
+            val update = Progress(progress, downloadPercent)
+            this.progress = update
             if (!running || !canPostNotifications(context)) return
             createNotificationChannel(context)
             runCatching {
                 NotificationManagerCompat.from(context)
-                    .notify(NOTIFICATION_ID, buildNotification(context, progress))
+                    .notify(NOTIFICATION_ID, buildNotification(context, update))
             }
         }
 
         fun stop(context: Context) {
             stopRequested = true
-            progressText = ""
+            progress = Progress("")
             runCatching {
                 if (running) {
                     running = false
@@ -174,7 +177,7 @@ class PatchForegroundService : Service() {
             )
         }
 
-        private fun buildNotification(context: Context, progress: String): Notification {
+        private fun buildNotification(context: Context, progress: Progress): Notification {
             val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
                 ?: Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             val contentIntent = PendingIntent.getActivity(
@@ -183,20 +186,32 @@ class PatchForegroundService : Service() {
                 launchIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-            return NotificationCompat.Builder(context, CHANNEL_ID)
+            val downloadPercent = progress.downloadPercent
+            val builder = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_launcher_monochrome)
                 .setContentTitle(context.getString(R.string.patch_notification_title))
                 .setContentText(
-                    progress.ifEmpty { context.getString(R.string.patch_notification_text) },
+                    progress.text.ifEmpty { context.getString(R.string.patch_notification_text) },
                 )
                 .setContentIntent(contentIntent)
+                .setCategory(NotificationCompat.CATEGORY_PROGRESS)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
                 .setOngoing(true)
                 .setSilent(true)
                 .setOnlyAlertOnce(true)
                 .setShowWhen(false)
-                .build()
+                .setProgress(100, downloadPercent ?: 0, downloadPercent == null)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+                val style = NotificationCompat.ProgressStyle()
+                    .setProgressIndeterminate(downloadPercent == null)
+                if (downloadPercent != null) {
+                    style.setProgress(downloadPercent)
+                    builder.setShortCriticalText("$downloadPercent%")
+                }
+                builder.setStyle(style).setRequestPromotedOngoing(true)
+            }
+            return builder.build()
         }
     }
 }
