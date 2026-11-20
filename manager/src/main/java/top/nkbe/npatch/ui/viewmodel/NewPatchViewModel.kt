@@ -78,22 +78,30 @@ class NewPatchViewModel : ViewModel() {
                 .toInt()
 
         private val STAGE_MARKERS = listOf(
-            "Connecting to" to R.string.patch_stage_connecting,
-            "Merging " to R.string.patch_stage_merging,
-            "Parsing original apk" to R.string.patch_stage_parsing,
-            "Packing split apk" to R.string.patch_stage_writing,
-            "Patching apk" to R.string.patch_stage_patching,
-            "Adding config" to R.string.patch_stage_config,
-            "Adding loader dex" to R.string.patch_stage_loader,
-            "Adding native lib" to R.string.patch_stage_native,
-            "Embedding modules" to R.string.patch_stage_modules,
-            "Adding metaloader dex" to R.string.patch_stage_metaloader,
-            "Writing apk" to R.string.patch_stage_writing,
-            "Signing output APK" to R.string.patch_stage_signing,
-            "Exporting" to R.string.patch_stage_exporting,
+            StageMarker("[Proxy] Connecting to ", R.string.patch_stage_connecting),
+            StageMarker("Merging ", R.string.patch_stage_merging, PatchPhase.MERGE),
+            StageMarker("Parsing original apk", R.string.patch_stage_parsing, PatchPhase.PATCH),
+            StageMarker("Packing split apk", R.string.patch_stage_writing, PatchPhase.PATCH),
+            StageMarker("Patching apk", R.string.patch_stage_patching, PatchPhase.PATCH),
+            StageMarker("Adding config", R.string.patch_stage_config, PatchPhase.PATCH),
+            StageMarker("Adding loader dex", R.string.patch_stage_loader, PatchPhase.PATCH),
+            StageMarker("Adding native lib", R.string.patch_stage_native, PatchPhase.PATCH),
+            StageMarker("Embedding modules", R.string.patch_stage_modules, PatchPhase.PATCH),
+            StageMarker("Adding metaloader dex", R.string.patch_stage_metaloader, PatchPhase.PATCH),
+            StageMarker("Writing apk", R.string.patch_stage_writing, PatchPhase.PATCH),
+            StageMarker("Signing output APK", R.string.patch_stage_signing, PatchPhase.SIGN),
+            StageMarker("Exporting", R.string.patch_stage_exporting, PatchPhase.SAVE),
         )
 
     }
+
+    private enum class PatchPhase { MERGE, PATCH, SIGN, SAVE }
+
+    private data class StageMarker(
+        val prefix: String,
+        @StringRes val label: Int,
+        val phase: PatchPhase? = null,
+    )
 
     enum class PatchState {
         INIT, SELECTING, CONFIGURING, PATCHING, CANCELLING, CANCELLED, FINISHED, ERROR
@@ -122,6 +130,9 @@ class NewPatchViewModel : ViewModel() {
 
     var currentStage by mutableStateOf("")
         private set
+
+    @Volatile
+    private var patchPhases: List<PatchPhase> = emptyList()
 
     var patchError by mutableStateOf<String?>(null)
         private set
@@ -199,8 +210,21 @@ class NewPatchViewModel : ViewModel() {
     }
 
     private fun applyStage(msg: String) {
-        val marker = STAGE_MARKERS.firstOrNull { msg.contains(it.first) } ?: return
-        updateStage(marker.second)
+        val marker = STAGE_MARKERS.firstOrNull { msg.startsWith(it.prefix) } ?: return
+        val phase = marker.phase
+        if (phase == null) {
+            updateStage(marker.label)
+            return
+        }
+        val phases = patchPhases
+        val completedPhases = phases.indexOf(phase)
+        if (completedPhases < 0) return
+        val currentPhase = "${completedPhases + 1}/${phases.size}"
+        updateStage(
+            marker.label,
+            "($currentPhase)",
+            PatchForegroundService.Progress(completedPhases, phases.size, currentPhase),
+        )
     }
 
     private fun onDownloadProgress(progress: ApkProxyService.DownloadProgress) {
@@ -210,16 +234,22 @@ class NewPatchViewModel : ViewModel() {
             append("(${progress.fileIndex}/${progress.fileCount})")
             if (downloadPercent != null) append(" $downloadPercent%")
         }
-        updateStage(R.string.patch_stage_downloading, detail, downloadPercent)
+        val indicator = downloadPercent?.let { PatchForegroundService.Progress(it, 100, "$it%") }
+        updateStage(R.string.patch_stage_downloading, detail, indicator)
     }
 
     /** ダウンロード中は毎秒十数回進捗が来るため、表示が変わるときだけ通知を更新する。 */
-    private fun updateStage(@StringRes resId: Int, detail: String = "", downloadPercent: Int? = null) {
+    private fun updateStage(
+        @StringRes resId: Int,
+        detail: String = "",
+        progress: PatchForegroundService.Progress? = null,
+    ) {
+        if (patchState != PatchState.PATCHING) return
         val stage = lspApp.getString(resId)
         val text = if (detail.isEmpty()) stage else "$stage $detail"
         if (text == currentStage) return
         currentStage = text
-        PatchForegroundService.updateProgress(lspApp, text, downloadPercent)
+        PatchForegroundService.updateProgress(lspApp, text, progress)
     }
 
     /** [MAX_LOG_LINES] を超えた分は古い行から捨てる。 */
@@ -436,6 +466,7 @@ class NewPatchViewModel : ViewModel() {
         patchError = null
         exportError = null
         preservedApkFiles = lspApp.targetApkFiles?.toList()
+        patchPhases = emptyList()
         currentStage = lspApp.getString(R.string.patch_stage_preparing)
         PatchForegroundService.start(lspApp, currentStage)
         patchJob = lspApp.globalScope.launch(Dispatchers.Main.immediate) {
@@ -446,6 +477,8 @@ class NewPatchViewModel : ViewModel() {
                     ?.let { buildPatchOptions(apkPaths = downloadProxyApks(it)) }
                     ?: patchOptions
 
+                patchPhases = if (options.inputApks.size > 1) PatchPhase.entries else PatchPhase.entries.drop(1)
+                updateStage(R.string.patch_stage_preparing)
                 logger.i("[Patch] Starting LSPatch engine...")
                 exportError = Patcher.patch(logger, options).exportError
                 outputSizeBytes = withContext(Dispatchers.IO) {
